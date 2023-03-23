@@ -7,8 +7,14 @@ namespace Rehcub
     [System.Serializable]
     public class ZigZagSolver : Solver
     {
+        [SerializeField] private bool _cross;
+        [Range(0f, 1f)]
+        [SerializeField] private float _limit = 0.5f;
+
+
         public ZigZagSolver(Chain chain) : base(chain)
         {
+
         }
 
         public override void Solve(BindPose bindPose, Pose pose, IKChain ikChain, BoneTransform parentTransform)
@@ -34,7 +40,7 @@ namespace Rehcub
             float r4 = length;
 
             Vector2 limits = GetLimits(r1, r2, r3, r4);
-            float rad = Mathf.Lerp(limits.x, limits.y, 0.5f);
+            float rad = Mathf.Lerp(limits.x, limits.y, _limit);
 
             Vector2 p2 = new Vector2(-r1 * Mathf.Cos(rad), r1 * Mathf.Sin(rad));
             Vector2 p4 = Vector2.right * r4;
@@ -52,7 +58,11 @@ namespace Rehcub
             float B2 = B * B;
             float C2 = C * C;
 
-            float phi = 2f * Mathf.Atan((A - Mathf.Sqrt(A2 + B2 - C2)) / (B + C));
+            float phi;
+            if(_cross)
+                phi = 2f * Mathf.Atan((A - Mathf.Sqrt(A2 + B2 - C2)) / (B + C));
+            else
+                phi = 2f * Mathf.Atan((A + Mathf.Sqrt(A2 + B2 - C2)) / (B + C));
 
             Vector2 p3 = new Vector2(-r3 * Mathf.Cos(phi), r3 * Mathf.Sin(phi)) + p4;
             float deg1 = -(Mathf.PI - rad) * Mathf.Rad2Deg;
@@ -61,32 +71,29 @@ namespace Rehcub
 
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             // Bone A 
-            Quaternion rot = AimBone(bindPose, parentTransform, axis);
+            Quaternion aimRotation = AimBone(bindPose, parentTransform, axis);
 
-            rot = Quaternion.AngleAxis(deg1, axis.left) * rot;
-            rot = Quaternion.Inverse(parentTransform.rotation) * rot;
-
-            pose.SetBoneLocal(poseA.boneName, rot);
+            Quaternion rot = Quaternion.AngleAxis(deg1, axis.left) * aimRotation;
+            pose.SetBoneModel(poseA.boneName, rot);
             parentTransform = pose.GetModelTransform(poseA);
 
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             // Bone B
 
-            rot = parentTransform.rotation;
-            rot = Quaternion.AngleAxis(deg2, axis.left) * rot;
-            rot = Quaternion.Inverse(parentTransform.rotation) * rot;
-
-            pose.SetBoneLocal(poseB.boneName, rot);
-            parentTransform = pose.GetModelTransform(poseB);
+            rot = parentTransform.rotation * bindPose.GetLocalTransform(_chain[1]).rotation; //Get the model bind rotation
+            // align to parent bone helpful when the chain is not straight in the bind pose, as normaly in quadrupeds
+            rot = Quaternion.FromToRotation(rot * _chain[1].axis.forward, parentTransform.rotation * _chain[0].axis.forward) * rot; 
+            rot = Quaternion.AngleAxis(deg2, axis.left) * rot; // rotate the computed ik angle
+            pose.SetBoneModel(_chain[1].boneName, rot);
+            parentTransform = pose.GetModelTransform(_chain[1]);
 
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             // Bone C
 
-            rot = parentTransform.rotation;
+            rot = parentTransform.rotation * bindPose.GetLocalTransform(_chain[2]).rotation;
+            rot = Quaternion.FromToRotation(rot * _chain[2].axis.forward, parentTransform.rotation * _chain[1].axis.forward) * rot;
             rot = Quaternion.AngleAxis(deg3, axis.left) * rot;
-            rot = Quaternion.Inverse(parentTransform.rotation) * rot;
-
-            pose.SetBoneLocal(poseC.boneName, rot);
+            pose.SetBoneModel(poseC.boneName, rot);
         }
 
         private Vector2 GetLimits(float r1, float r2, float r3, float r4)

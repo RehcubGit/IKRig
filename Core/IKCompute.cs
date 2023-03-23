@@ -52,39 +52,41 @@ namespace Rehcub
 			// based on the bind pose. We can transform that direction with the Animated rotation to give us where the
 			// joint direction has moved to.
 
-			Bone boneA = armature.currentPose[chain.First().boneName];
-			Bone boneB = armature.currentPose[chain.Last().boneName];
-			Vector3 ikDirection = boneB.model.position - boneA.model.position;
-			float ikLength = ikDirection.magnitude;
-			ikDirection.Normalize();
+			BoneTransform start = armature.currentPose.GetModelTransform(chain.First());
+			BoneTransform end = armature.currentPose.GetModelTransform(chain.Last());
 
-			ikChain.lengthScale = ikLength / chain.length;
-			ikChain.direction = ikDirection;
+			Vector3 direction = end.position - start.position;
+			float length = direction.magnitude;
+			direction.Normalize();
 
-			Vector3 jointDir = boneA.model.rotation * chain.alternativeUp;
-			Vector3 leftDir = Vector3.Cross(jointDir.normalized, ikDirection).normalized;
-			ikChain.jointDirection = Vector3.Cross(ikDirection, leftDir).normalized;
+			Vector3 jointDir = start.rotation * chain.alternativeUp;
+			Axis axis = new Axis(direction, jointDir);
+
+			ikChain.lengthScale = length / chain.length;
+			ikChain.axis = axis;
+			ikChain.direction = axis.forward;
+			ikChain.jointDirection = axis.up;
 
 			SimpleBone(armature, chain.Last(), ikChain.endEffector);
 		}
 
-		public static void SimpleBone(Armature armature, Bone bone, IKBone ik) => SimpleBone(armature, bone, ik, Vector3.forward, Vector3.up);
+		public static void SimpleBone(Armature armature, Bone bone, IKBone ikBone) => SimpleBone(armature, bone, ikBone, bone.alternativeUp, bone.alternativeForward);
 
-		public static void SimpleBone(Armature armature, Bone bone, IKBone ik, Vector3 lookDirection, Vector3 twistDirection)
+		public static void SimpleBone(Armature armature, Bone bone, IKBone ikBone, Vector3 up, Vector3 forward)
 		{
 			BoneTransform bindModel = armature.bindPose.GetModelTransform(bone.boneName);
 			BoneTransform poseModel = armature.currentPose.GetModelTransform(bone.boneName);
 
-			Quaternion inverseModelRotation = Quaternion.Inverse(bindModel.rotation);
+			Axis bindGlobalAxis = new Axis(forward, up);
+			bindGlobalAxis.Rotate(bindModel.rotation);
 
-			Vector3 look = inverseModelRotation * lookDirection;
-			Vector3 twist = inverseModelRotation * twistDirection;
+			Axis axis = new Axis(forward, up);
+			axis.Rotate(poseModel.rotation);
 
-			look = poseModel.rotation * look;
-			twist = poseModel.rotation * twist;
-
-			ik.direction = look;
-			ik.twist = twist;
+			ikBone.direction = axis.forward;
+			ikBone.twist = axis.up;
+			ikBone.axis = axis;
+			ikBone.sourceAxis = bindGlobalAxis;
 		}
 	}
 }

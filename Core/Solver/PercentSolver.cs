@@ -4,68 +4,55 @@ namespace Rehcub
 {
     public class PercentSolver : Solver
     {
-        [SerializeField] private float minLimit = -90;
-        [SerializeField] private float maxLimit;
+        [SerializeField] private float _minLimit = -90;
+        [SerializeField] private float _maxLimit;
 
+        public float Percent { get => _percent; set => _percent = value; }
         [Range(0, 1)]
-        [SerializeField] private float open;
+        [SerializeField] private float _percent;
 
 
         public PercentSolver(Chain chain) : base(chain)
         {
         }
 
+
         public override void Solve(BindPose bindPose, Pose pose, IKChain ikChain, BoneTransform parentTransform)
         {
             BoneTransform bindLocal = bindPose.GetLocalTransform(_chain.First());
-            BoneTransform childTransform = parentTransform + bindLocal;
-            //Axis axis = GetAxis(ikChain);
 
-            //Debug.Log(_chain.First().boneName);
-            //Debug.Log(_chain.alternativeUp);
+            Quaternion aimRotation = bindLocal.rotation;
 
-            Vector3 worldForward = childTransform.rotation * _chain.alternativeForward;
-            Vector3 worldUp = childTransform.rotation * _chain.alternativeUp;
-
-            Axis axis = new Axis(worldForward, worldUp);
+            if (ikChain != null)
+                aimRotation = AimBone(bindPose, parentTransform, GetAxis(ikChain));
 
             //float percent = Vector3.Dot(worldForward, axis.forward) * 0.5f + 0.5f;
-            float percent = open;
+            float angle = (_maxLimit - _minLimit) * _percent;
 
-            float angle = (maxLimit - minLimit) * percent;
+            Vector3 forward = _chain.alternativeForward;
+            Vector3 up = _chain.alternativeUp;
+
+            Axis axis = new Axis(forward, up);
+
             Quaternion q = Quaternion.AngleAxis(angle, axis.left);
 
             for (int i = 0; i < _chain.count; i++)
             {
-                //Bone bind = bindPose[_chain[i].boneName]; 
-                bindLocal = bindPose.GetLocalTransform(_chain[i]);
+                Quaternion rotation = Quaternion.identity;
 
-                childTransform = parentTransform + bindLocal;
+                if (i == 0)
+                {
+                    rotation = aimRotation;
+                    if (_chain.source == SourceChain.THUMB)
+                    {
+                        pose.SetBoneModel(_chain[i].boneName, aimRotation);
+                        continue;
+                    }
+                }
 
-                Quaternion rot = q * childTransform.rotation;
-                rot = Quaternion.Inverse(parentTransform.rotation) * rot;
-
-                pose.SetBoneLocal(_chain[i].boneName, rot);
-                parentTransform += new BoneTransform(bindLocal.position, rot);
+                rotation = q * rotation;
+                pose.SetBoneLocal(_chain[i].boneName, rotation);
             }
-
-            /*Vector3 bindDirection = _chain.Last().model.position - _chain.First().model.position;
-            bindDirection.Normalize();
-            float angle = Vector3.Angle(bindDirection, axis.forward);
-
-
-            for (int i = 0; i <= count; i++)
-			{
-				Bone bind = bindPose[_chain[i].boneName];
-
-                BoneTransform childTransform = parentTransform + bind.local;
-
-                Quaternion rot = Quaternion.AngleAxis(angle, axis.left) * childTransform.rotation;
-				rot = Quaternion.Inverse(parentTransform.rotation) * rot;
-
-				pose.SetBoneLocal(_chain[i].boneName, rot);
-				parentTransform += new BoneTransform(bind.local.position, rot);
-			}*/
 		}
     }
 }

@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEditor.IMGUI.Controls;
+using Bewildered.Editor;
 
 namespace Rehcub 
 {
@@ -54,12 +55,16 @@ namespace Rehcub
 
         private void DuringSceneGUI(SceneView sceneView)
         {
-            IKEditorDebug.DrawPose(_builder.bones);
-
-            /*foreach (Chain chain in _builder.chains)
+            if (_showChains)
             {
-                IKEditorDebug.DrawChain(chain);
-            }*/
+                foreach (Chain chain in _builder.chains)
+                {
+                    IKEditorDebug.DrawChain(chain);
+                }
+                return;
+            }
+
+            IKEditorDebug.DrawPose(_builder.bones);
         }
 
         public static void ShowConfigurator(ArmatureBuilder builder)
@@ -72,28 +77,33 @@ namespace Rehcub
 
         public void Init()
         {
-            currentProperty = serializedObject.FindProperty("boneTransforms");     
-            reorderableTransform = new ReorderableList(serializedObject, currentProperty, true, true, true, true)
+            if(reorderableBones == null)
             {
-                drawElementCallback = DrawTransformListItems,
-                drawHeaderCallback = (rect) => EditorGUI.LabelField(rect, "Transforms")
-            };
+                currentProperty = serializedObject.FindProperty("bones");
+                reorderableBones = new ReorderableList(serializedObject, currentProperty, true, true, true, true)
+                {
+                    drawElementCallback = DrawBoneListItems,
+                    drawHeaderCallback = (rect) => EditorGUI.LabelField(rect, "Bones"),
+                    onRemoveCallback = (list) => OnRemoveBoneItem(list)
+                };
+            }
 
-            currentProperty = serializedObject.FindProperty("bones");
-            reorderableBones = new ReorderableList(serializedObject, currentProperty, true, true, true, true)
+            if(reorderableChains == null)
             {
-                drawElementCallback = DrawBoneListItems,
-                drawHeaderCallback = (rect) => EditorGUI.LabelField(rect, "Bones"),
-                onRemoveCallback = (list) => OnRemoveItem(list)
-            };
+                currentProperty = serializedObject.FindProperty("chains");
+                reorderableChains = new ReorderableList(serializedObject, currentProperty, true, true, true, true)
+                {
+                    drawElementCallback = DrawChainListItems,
+                    drawHeaderCallback = (rect) => EditorGUI.LabelField(rect, "Chains"),
+                    //onCanAddCallback = (list) => true,
+                    onAddCallback = (list) => {
+                        list.serializedProperty.arraySize++;
+                        serializedObject.ApplyModifiedProperties();
+                    },
+                    onRemoveCallback = (list) => OnRemoveChainItem(list)
+                };
+            }
 
-            currentProperty = serializedObject.FindProperty("chains");
-            reorderableChains = new ReorderableList(serializedObject, currentProperty, true, true, true, true)
-            {
-                drawElementCallback = DrawChainListItems,
-                drawHeaderCallback = (rect) => EditorGUI.LabelField(rect, "Chains"),
-                onRemoveCallback = (list) => OnRemoveItem(list)
-            };
 
             // Check whether there is already a serialized view state (state 
             // that survived assembly reloading)
@@ -103,20 +113,18 @@ namespace Rehcub
             transformTreeView = new TransformTreeView(_builder.boneTransforms, _treeViewState);
         }
 
-        private void OnRemoveItem(ReorderableList list)
-        {
-            selectedProperty = null;
-            list.serializedProperty.DeleteArrayElementAtIndex(list.index);
-        }
-
         private void OnGUI()
         {
+            serializedObject.Update();
+
             using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true)))
             {
                 if (GUILayout.Button("Create Rig"))
                 {
                     Selection.activeGameObject = _builder.gameObject;
+                    //FixChainBoneReferace();
                     _builder.CreateIKRig();
+                    UpdateList();
                     _window.Close();
                     return;
                 }
@@ -128,42 +136,49 @@ namespace Rehcub
                     return;
                 }
             }
-            
 
-            Transform selection = Selection.activeTransform;
-
-
-            using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button("Force T-Pose"))
             {
-                if (GUILayout.Button("Add Bone"))
-                {
-                    AddBone(selection);
+                ForceTPose();
+                return;
+            }
 
-                    UpdateList();
-                }
-                if (GUILayout.Button("Add All Bones"))
-                {
-                    AddAllBones(selection);
+            if (_showTransforms)
+            {
+                Transform selection = Selection.activeTransform;
 
-                    UpdateList();
-                }
-
-                if (GUILayout.Button("Add Chain"))
+                using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true)))
                 {
-                    if (transformTreeView.HasSelection())
+                    if (GUILayout.Button("Add Bone"))
                     {
-                        AddChain(transformTreeView.GetSelection());
-                        return;
+                        AddBone(selection);
+
+                        UpdateList();
                     }
-                    AddChain(Selection.GetTransforms(SelectionMode.Editable));
+                    if (GUILayout.Button("Add All Bones"))
+                    {
+                        AddAllBones(selection);
+
+                        UpdateList();
+                    }
+
+                    if (GUILayout.Button("Add Chain"))
+                    {
+                        if (transformTreeView.HasSelection())
+                            AddChain(transformTreeView.GetSelection());
+                        else
+                            AddChain(Selection.GetTransforms(SelectionMode.Editable));
+                        UpdateList();
+                    }
+                }
+
+                if (GUILayout.Button("Auto Polulate Humanoid Rig"))
+                {
+                    PopulateArmature(selection);
                     UpdateList();
                 }
             }
-            if (GUILayout.Button("Auto Polulate Humanoid Rig"))
-            {
-                PopulateArmature(selection);
-                UpdateList();
-            }
+
 
             if (GUILayout.Button("Clear All"))
             {
@@ -171,14 +186,13 @@ namespace Rehcub
                 _builder.bones.Clear();
                 _builder.chains.Clear();
 
+                selectedProperty = null;
                 UpdateList();
             }
 
-            serializedObject.Update();
+            //
             DrawHeaderToolBar();
             DrawBoneList();
-            
-            serializedObject.ApplyModifiedProperties();
 
         }
 
@@ -186,7 +200,74 @@ namespace Rehcub
         {
             if (transformTreeView != null)
                 transformTreeView.UpdateList(_builder.boneTransforms);
+            serializedObject.SetIsDifferentCacheDirty();
+            serializedObject.Update();
             Repaint();
+        }
+
+        private void ForceTPose()
+        {
+            Chain chain = FindChain(SourceChain.ARM, SourceSide.LEFT);
+            ForceTPose(chain);
+
+            chain = FindChain(SourceChain.ARM, SourceSide.RIGHT);
+            ForceTPose(chain);
+        }
+
+        private void ForceTPose(Chain chain)
+        {
+            Vector3 forward = Vector3.forward;
+            Vector3 up = Vector3.up;
+            Vector3 upLast = Vector3.up;
+            bool ignoreLast = false;
+
+            if(chain.source == SourceChain.LEG)
+            {
+                forward = Vector3.down;
+                up = Vector3.forward;
+                ignoreLast = true;
+            }
+            if(chain.source == SourceChain.ARM)
+            {
+                if(chain.side == SourceSide.LEFT)
+                    forward = Vector3.left;
+                if(chain.side == SourceSide.RIGHT)
+                    forward = Vector3.right;
+                up = Vector3.back;
+                upLast = Vector3.up;
+            }
+
+
+            for (int i = 0; i < chain.count; i++)
+            {
+                if (i == chain.count - 1 && ignoreLast)
+                    continue;
+
+                Bone bone = FindBone(chain[i].boneName);
+                Transform transform = FindTransform(chain[i].boneName);
+                Transform parent = transform.parent;
+
+                Axis axis = bone.axis;
+
+                Quaternion rot = Quaternion.FromToRotation(parent.rotation * axis.forward, forward);
+                rot = parent.rotation * rot;
+
+                if (i == chain.count - 1)
+                    up = upLast;
+
+                rot = Quaternion.FromToRotation(rot * axis.up, up) * rot;
+                transform.rotation = rot;
+
+                UpdateBone(bone);
+            }
+
+            serializedObject.Update();
+        }
+
+        private void UpdateBone(Bone bone)
+        {
+            Transform transform = FindTransform(bone.boneName);
+            bone.Update(transform);
         }
 
         private void DrawHeaderToolBar()
@@ -216,45 +297,100 @@ namespace Rehcub
 
         Vector2 _scrollPosition;
         Rect treeViewRect;
+        float sideBarWidth = 180;
+        bool changeLayout;
         private void DrawBoneList()
         {
-            using (var scrollViewScope = new GUILayout.ScrollViewScope(_scrollPosition))
+            if (_showTransforms)
             {
-                _scrollPosition = scrollViewScope.scrollPosition;
-                if (_showTransforms)
+                using (new GUILayout.VerticalScope("box", GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
                 {
                     if (GUILayout.Button("Expand All"))
                         transformTreeView.ExpandAll();
-                    
+
                     if (GUILayout.Button("Collapse All"))
                         transformTreeView.CollapseAll();
 
-                    treeViewRect = GUILayoutUtility.GetRect(_window.position.width, _window.position.height);
+                    treeViewRect = GUILayoutUtility.GetRect(0f, 0f, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                     transformTreeView.OnGUI(treeViewRect);
-                    return;
+                }
+                return;
+            }
+
+
+            using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
+            {
+                using (var scrollViewScope = new EditorGUILayout.ScrollViewScope(_scrollPosition, GUILayout.MaxWidth(sideBarWidth)))
+                {
+                    using (new GUILayout.VerticalScope("box", GUILayout.MaxWidth(sideBarWidth), GUILayout.ExpandHeight(true)))
+                    {
+                        _scrollPosition = scrollViewScope.scrollPosition;
+                        if (_showBones)
+                            reorderableBones.DoLayoutList();
+                        if (_showChains)
+                            reorderableChains.DoLayoutList();
+                    
+                    }
                 }
 
+                Rect rect = GUILayoutUtility.GetRect(4f, 0f, GUILayout.MaxWidth(4f), GUILayout.ExpandHeight(true));
+                EditorGUIUtility.AddCursorRect(rect, MouseCursor.ResizeHorizontal);
 
-                using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
+                Event evt = Event.current;
+                EventType eventType = evt.type;
+
+                if (rect.Contains(evt.mousePosition))
                 {
-                    using (new GUILayout.VerticalScope("box", GUILayout.MaxWidth(180), GUILayout.ExpandHeight(true)))
+                    if (eventType == EventType.MouseDown)
+                        changeLayout = true;
+                }
+
+                if (eventType == EventType.MouseUp)
+                    changeLayout = false;
+
+                if (changeLayout)
+                {
+                    Rect mouseRect = new Rect(0f, 0f, _window.position.width, _window.position.height);
+                    EditorGUIUtility.AddCursorRect(mouseRect, MouseCursor.ResizeHorizontal);
+                    if (eventType == EventType.MouseDrag)
                     {
-                        if(_showBones)
-                            reorderableBones.DoLayoutList(); 
-                        if(_showChains)
-                            reorderableChains.DoLayoutList();
+                        sideBarWidth = evt.mousePosition.x;
+                        GUI.changed = true;
+                        evt.Use();
                     }
+                }
 
-                    using (new GUILayout.VerticalScope("box", GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
+                using (new GUILayout.VerticalScope("box", GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
+                {
+                    if (selectedProperty == null)
+                        return;
+
+                    EditorGUILayout.PropertyField(selectedProperty, true, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+                    bool test = serializedObject.ApplyModifiedProperties();
+
+                    if (_showBones)
                     {
-                        if (selectedProperty == null)
-                            return;
-
-                        EditorGUILayout.PropertyField(selectedProperty);
+                        if (GUILayout.Button("Recalculate Transforms"))
+                        {
+                            Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
+                            Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
+                            bone.ComputeForwardAxis(child);
+                            //serializedObject.Update();
+                        }
+                        
+                        if (GUILayout.Button("Recalculate Axis"))
+                        {
+                            Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
+                            Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
+                            bone.ComputeForwardAxis(child);
+                            //serializedObject.Update();
+                        }
                     }
                 }
             }
         }
+
+        #region Add Bone/Chain/Transform
 
         private void AddAllBones(Transform root)
         {
@@ -269,72 +405,51 @@ namespace Rehcub
             }
         }
 
-        private void AddBone(Transform transform)
+        private Bone AddBone(Transform transform)
+        {
+            string name = transform.name.ToLower();
+            return AddBone(transform, GetSide(name), GetBone(name));
+        }
+
+        private Bone AddBone(Transform transform, SourceSide sourceSide, SourceBone sourceBone)
         {
             AddTransform(transform);
 
-            string name = transform.name.ToLower();
-            Bone bone = new Bone(transform) 
-            {
-                side = GetSide(name),
-                source = GetBone(name)
-            };
-            _builder.bones.Add(bone);
-        }
-
-        private void AddBone(Transform transform, SourceSide sourceSide, SourceBone sourceBone)
-        {
             Bone bone = new Bone(transform)
             {
                 side = sourceSide,
                 source = sourceBone
-            };
-            _builder.bones.Add(bone);
-        }
-
-        private void AddChain(Transform root, int count)
-        {
-            Transform[] chainTransforms = new Transform[count];
-
-            Bone[] chainBones = new Bone[count];
-
-            for (int i = 0; i < count; i++)
+            }; 
+            
+            if (transform.childCount > 0)
             {
-                chainTransforms[i] = root;
-                chainBones[i] = new Bone(root);
-                root = root.GetChild(0);
+                Transform child = transform.GetChild(0);
+                Vector3 alternativeForward = transform.InverseTransformPoint(child.position);
+                Axis axis = new Axis(alternativeForward, Vector3.forward);
+                
+                bone.alternativeForward = axis.forward;
+                bone.alternativeUp = axis.up;
+                bone.ComputeLength(child);
             }
 
-            AddTransforms(chainTransforms);
-            _builder.bones.AddRange(chainBones);
+            AddBone(bone);
+            return bone;
+        }
 
-            Chain chain = new Chain(chainBones);
-            chain.ComputeForwardAxis(chainTransforms[0], chainTransforms[1]);
-            _builder.chains.Add(chain);
+        private void AddBone(Bone bone)
+        {
+            _builder.bones.Add(bone);
+
+            Bone parent = _builder.bones.Find((b) => b.boneName.Equals(bone.parentName));
+            if (parent == null)
+                return;
+            parent.childNames.Add(bone.boneName);
         }
 
         private void AddChain(Transform[] transforms)
         {
-            int count = transforms.Length;
-
-            Bone[] chainBones = new Bone[count];
-
-            for (int i = 0; i < count; i++)
-            {
-                chainBones[i] = new Bone(transforms[i]);
-            }
-
-            AddTransforms(transforms);
-            _builder.bones.AddRange(chainBones);
-
-            Chain chain = new Chain(chainBones)
-            {
-                side = GetSide(name),
-                source = GetChain(name)
-            };
-            chain.ComputeForwardAxis(transforms[0], transforms[1]);
-            _builder.chains.Add(chain);
-            SetChainBones(chainBones, chain);
+            string name = transforms.First().name;
+            AddChain(transforms, GetSide(name), GetChain(name));
         }
 
         private void AddChain(Transform[] transforms, SourceSide sourceSide, SourceChain sourceChain)
@@ -343,17 +458,20 @@ namespace Rehcub
 
             for (int i = 0; i < transforms.Length; i++)
             {
-                chainBones[i] = new Bone(transforms[i]);
+                Bone bone = FindBone(transforms[i].name);
+                if(bone == null)
+                {
+                    bone = AddBone(transforms[i]);
+                }
+                chainBones[i] = bone;
             }
             AddTransforms(transforms);
-            _builder.bones.AddRange(chainBones);
 
             Chain chain = new Chain(chainBones)
             {
                 side = sourceSide,
                 source = sourceChain
             };
-            chain.ComputeForwardAxis(transforms[0], transforms[1]);
             _builder.chains.Add(chain);
 
             SetChainBones(chainBones, chain);
@@ -364,7 +482,7 @@ namespace Rehcub
             Bone[] chainBones = new Bone[indecies.Count];
             for (int i = 0; i < indecies.Count; i++)
             {
-                chainBones[i] = _builder.bones[indecies[i]];
+                chainBones[i] = new Bone(_builder.bones[indecies[i]]);
             }
 
             string name = chainBones.First().boneName.ToLower();
@@ -374,15 +492,18 @@ namespace Rehcub
                 side = GetSide(name),
                 source = GetChain(name)
             };
-            chain.ComputeForwardAxis(_builder.bones[indecies[0]], _builder.bones[indecies[1]]);
-            _builder.chains.Add(chain);
+            //_builder.chains.Add(chain);
+
+            SerializedProperty chainList = serializedObject.FindProperty("chains");
+            int index = chainList.arraySize;
+
+            chainList.InsertArrayElementAtIndex(index);
+            serializedObject.ApplyModifiedProperties();
+
+            chainList.GetLastArrayElement().SetValue(chain);
+            serializedObject.Update();
 
             SetChainBones(chainBones, chain);
-            /*foreach (Bone bone in chainBones)
-            {
-                bone.side = chain.side;
-                bone.source = SourceBone.CHAIN;
-            }*/
         }
 
         private bool AddTransform(Transform transform)
@@ -404,6 +525,114 @@ namespace Rehcub
                 AddTransform(transform);
             }
         }
+
+        #endregion
+
+        #region Remove Bone/Chain
+        private void OnRemoveBoneItem(ReorderableList list)
+        {
+            selectedProperty = null;
+
+            Bone bone = _builder.bones[list.index];
+            Transform transform = _builder.boneTransforms.Find((t) => t.name.Equals(bone.boneName));
+
+
+
+            Bone parent = _builder.bones.Find((b) => b.boneName.Equals(bone.parentName));
+            if (parent != null)
+                parent.childNames.Remove(bone.boneName);
+
+            for (int i = 0; i < bone.childNames.Count; i++)
+            {
+                Bone child = _builder.bones.Find((b) => b.boneName.Equals(bone.childNames[i]));
+                child.parentName = bone.parentName;
+
+                BoneTransform parentTransform = BoneTransform.zero;
+                if (parent != null)
+                    parentTransform = parent.model;
+
+                child.UpdateLocal(parentTransform);
+            }
+
+
+            _builder.boneTransforms.Remove(transform);
+            _builder.bones.RemoveAt(list.index);
+            UpdateList();
+            //list.serializedProperty.DeleteArrayElementAtIndex(list.index); 
+        }
+
+        private void OnRemoveChainItem(ReorderableList list)
+        {
+            selectedProperty = null;
+            _builder.chains.RemoveAt(list.index);
+            UpdateList();
+            //list.serializedProperty.DeleteArrayElementAtIndex(list.index);
+        }
+
+        #endregion
+
+        #region Find Bone/Chain/Transform
+
+        private Transform FindTransform(string boneName)
+        {
+            return _builder.boneTransforms.Find((t) => t.name.Equals(boneName));
+        }
+        private Bone FindBone(string boneName)
+        {
+            return _builder.bones.Find((b) => b.boneName.Equals(boneName));
+        }
+        private SerializedProperty FindBoneProperty(string boneName)
+        {
+            for (int i = 0; i < _builder.bones.Count; i++)
+            {
+                if (_builder.bones[i].boneName.Equals(boneName))
+                {
+                    return reorderableBones.serializedProperty.GetArrayElementAtIndex(i);
+                    SerializedProperty boneProp = serializedObject.FindProperty("bones").GetArrayElementAtIndex(i);
+                    Debug.Log(boneProp.FindPropertyRelative("boneName").stringValue);
+                    return boneProp;
+                }
+            }
+            Debug.Log("Bone null");
+            return null;
+        }
+        private SerializedProperty FindBoneProperty(SerializedProperty bone)
+        {
+            //SerializedProperty bonesArray = serializedObject.FindProperty("bones");
+            SerializedProperty bonesArray = reorderableBones.serializedProperty;
+
+            for (int i = 0; i < bonesArray.arraySize; i++)
+            {
+                SerializedProperty boneProp = bonesArray.GetArrayElementAtIndex(i);
+                if (SerializedProperty.EqualContents(bone, boneProp))
+                    return boneProp;
+            }
+            Debug.Log("Bone null");
+            return null;
+        }
+
+        private Chain FindChain(SourceChain sourceChain, SourceSide sourceSide)
+        {
+            return _builder.chains.Find((c) => c.source == sourceChain && c.side == sourceSide);
+        }
+        private SerializedProperty FindChainProperty(SourceChain sourceChain, SourceSide sourceSide)
+        {
+
+            SerializedProperty chainArray = serializedObject.FindProperty("chains");
+            for (int i = 0; i < chainArray.arraySize; i++)
+            {
+                SerializedProperty chain = chainArray.GetArrayElementAtIndex(i);
+
+                if (chain.FindPropertyRelative("source").enumValueIndex == ((int)sourceChain) && chain.FindPropertyRelative("side").enumValueIndex == ((int)sourceSide))
+                {
+                    return chain;
+                }
+            }
+            Debug.Log("Chain null");
+            return null;
+        }
+
+        #endregion
 
         #region Populate
         public void PopulateArmature(Transform root)
@@ -546,6 +775,7 @@ namespace Rehcub
         
         private SourceSide GetSide(string name)
         {
+            name = name.ToLower();
             if (IsLeft(name))
                 return SourceSide.LEFT;
             if (IsRight(name))
@@ -555,6 +785,7 @@ namespace Rehcub
 
         private SourceBone GetBone(string name)
         {
+            name = name.ToLower();
             if (IsHead(name))
                 return SourceBone.HEAD;
             if (IsNeck(name))
@@ -571,6 +802,7 @@ namespace Rehcub
 
         private SourceChain GetChain(string name)
         {
+            name = name.ToLower();
             if (IsLeg(name))
                 return SourceChain.LEG;
             if (IsArm(name))
@@ -585,10 +817,6 @@ namespace Rehcub
 
         private void SetChainBones(Bone[] chainBones, Chain chain)
         {
-            foreach (Bone bone in chainBones)
-            {
-                bone.side = chain.side;
-            }
             int start = 0;
             if (chain.source == SourceChain.LEG)
                 start = (int)SourceBone.UPPER_LEG;
@@ -603,17 +831,21 @@ namespace Rehcub
             {
                 for (int i = 0; i < chainBones.Length; i++)
                 {
-                    Bone bone = chainBones[i];
-                    bone.source = SourceBone.NONE;
+                    SerializedProperty bone = FindBoneProperty(chainBones[i].boneName);
+                    bone.FindPropertyRelative("source").enumValueIndex = start + i;
+                    bone.FindPropertyRelative("side").enumValueIndex = (int)chain.side;
                 }
                 return;
             }
 
             for (int i = 0; i < chainBones.Length; i++)
             {
-                Bone bone = chainBones[i];
-                bone.source = (SourceBone)(start + i);
+                SerializedProperty bone = FindBoneProperty(chainBones[i].boneName);
+                bone.FindPropertyRelative("source").enumValueIndex = start + i;
+                bone.FindPropertyRelative("side").enumValueIndex = (int)chain.side;
             }
+
+            serializedObject.ApplyModifiedProperties();
         }
 
         private SourceChain GetFinger(string name)
@@ -653,18 +885,6 @@ namespace Rehcub
 
         #endregion
 
-        void DrawTransformListItems(Rect rect, int index, bool isActive, bool isFocused)
-        {
-            SerializedProperty element = reorderableTransform.serializedProperty.GetArrayElementAtIndex(index);
-            EditorGUI.PropertyField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), element);
-
-            element.isExpanded = isActive;
-            if (isActive == false)
-                return;
-
-            selectedProperty = element;
-
-        }
         void DrawBoneListItems(Rect rect, int index, bool isActive, bool isFocused)
         {
             SerializedProperty element = reorderableBones.serializedProperty.GetArrayElementAtIndex(index);

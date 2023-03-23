@@ -54,8 +54,6 @@ namespace Rehcub
 
         private void OnEnable()
         {
-            if(_constraintTypes == null)
-                _constraintTypes = GetTypes(typeof(BoneConstraint));
             SceneView.duringSceneGui += DuringSceneGUI;
             Undo.undoRedoPerformed += UndoRepaint;
 
@@ -65,6 +63,9 @@ namespace Rehcub
                 _currentKeyframe = 0;
                 
                 IKAnimationData animationData = (IKAnimationData)prop.objectReferenceValue;
+                if (animationData == null)
+                    return;
+
                 _animation = _rig.GetAnimation(animationData);
                 _rig.ApplyIkPose(animationData, _currentKeyframe);
 
@@ -137,17 +138,6 @@ namespace Rehcub
                 return;
             if (selectedProperty.objectReferenceValue == null)
                 return;
-
-            if (_showAnimation)
-            {
-                IKEditorDebug.DrawConstraint(GetModifierProperty());
-                settingsEditor.serializedObject.ApplyModifiedProperties();
-                if (GUI.changed)
-                {
-                    ApplyPose();
-                    Repaint();
-                }
-            }
 
             IKAnimationData animationData = (IKAnimationData)selectedProperty.objectReferenceValue;
             if (_showAnimationDebug)
@@ -324,18 +314,6 @@ namespace Rehcub
 
                     DrawPlayControls(keyframes.arraySize);
 
-                    /*if (_showAnimationDebug)
-                    {
-                        SerializedProperty keyframe = keyframes.GetArrayElementAtIndex(_currentKeyframe);
-                        keyframe.isExpanded = true;
-                        EditorGUILayout.PropertyField(keyframe);
-                    }*/
-
-
-                    GUILayout.Space(15);
-
-                    DrawModificationPanal();
-
                     //Undo.RecordObject(settingsEditor.serializedObject.targetObject, "Generic Animation Apply");
                     //Undo.RegisterCompleteObjectUndo(settingsEditor.serializedObject.targetObject, "Test");
                     if (settingsEditor.serializedObject.ApplyModifiedProperties())
@@ -401,117 +379,6 @@ namespace Rehcub
             }
         }
         
-        private void DrawModificationPanal()
-        {
-            using (new GUILayout.VerticalScope("box", GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
-            {
-                bool buttonResult = GUILayout.Button("Add Mod", EditorStyles.popup);
-
-                if (Event.current.type == EventType.Repaint)
-                {
-                    popupRect = GUILayoutUtility.GetLastRect();
-                }
-                if (buttonResult)
-                {
-                    var menuContent = _constraintTypes.Select((type) => type.Name).ToArray();
-
-                    popup = PopupExample.Init(popupRect, menuContent, (index) => AddModifier(_constraintTypes.ElementAt(index)));
-                    PopupWindow.Show(popupRect, popup);
-                }
-
-                using (var scrollScope = new GUILayout.ScrollViewScope(new Vector2(0, scrollMod)))
-                {
-                    scrollMod = scrollScope.scrollPosition.y;
-                    for (int i = 0; i < GetModifierProperty().arraySize; i++)
-                    {
-                        DrawModifier(i);
-                    }
-                }
-                
-
-            }
-        }
-
-        private void DrawModifier(int index)
-        {
-            SerializedProperty modsProp = GetModifierProperty();
-            SerializedProperty modProp = modsProp.GetArrayElementAtIndex(index);
-
-            using (new GUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.ExpandWidth(true)))
-            {
-                using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true)))
-                {
-                    GUILayoutOption[] options =
-                    {
-                            GUILayout.MaxWidth(32f),
-                            GUILayout.MaxHeight(EditorGUIUtility.singleLineHeight)
-                    };
-
-                    string className = modProp.managedReferenceFullTypename.Split(' ').Last().Split('.').Last();
-
-                    EditorGUILayout.PropertyField(modProp, new GUIContent(className), true);
-
-                    SerializedProperty visibleProp = modProp.FindPropertyRelative("visible"); 
-                    GUIContent d;
-                    if (visibleProp.boolValue)
-                        d = EditorGUIUtility.IconContent("d_scenevis_visible_hover@2x");
-                    else
-                        d = EditorGUIUtility.IconContent("d_scenevis_hidden_hover@2x");
-
-                    if (GUILayout.Button(EditorGUIUtility.IconContent("d_scrollup_uielements@2x"), options))
-                    {
-                        if (index == 0)
-                            return;
-                        modsProp.MoveArrayElement(index, index - 1);
-                        return;
-                    }
-                    if (GUILayout.Button(EditorGUIUtility.IconContent("d_scrolldown_uielements@2x"), options))
-                    {
-                        if (index >= modsProp.arraySize - 1)
-                            return;
-                        modsProp.MoveArrayElement(index, index + 1);
-                        return;
-                    }
-                    if (GUILayout.Button(d, options))
-                    {
-                        visibleProp.boolValue = !visibleProp.boolValue;
-                        return;
-                    }
-                    if (GUILayout.Button(EditorGUIUtility.IconContent("d_clear@2x"), options))
-                    {
-                        RemoveModifier(index);
-                        return;
-                    }
-                }
-
-                if (modProp.isExpanded == false)
-                    return;
-
-                SerializedProperty tooltipProp = modProp.FindPropertyRelative("_tooltip");
-                if (tooltipProp != null)
-                    EditorGUILayout.HelpBox(tooltipProp.stringValue, MessageType.Warning);
-
-                using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true)))
-                {
-                    if (GUILayout.Button("Apply"))
-                    {
-                        //Undo.RegisterCompleteObjectUndo(settingsEditor.serializedObject.targetObject, "Apply Modifier");
-                        IKAnimationData animationData = (IKAnimationData)settingsEditor.serializedObject.targetObject;
-                        IKAnimation ikAnimation = animationData.ApplyModifier(_rig.Armature, index);
-                        //SerializedProperty animation = settingsEditor.serializedObject.FindProperty("animation");
-                        //animation.SetValue(ikAnimation);
-                        //EditorUtility.SetDirty(animationData);
-                        settingsEditor.serializedObject.Update();
-                        RemoveModifier(index);
-                    }
-                    if (GUILayout.Button("Copy")) 
-                    {
-                    }
-                }
-            }
-
-        }
-
         #endregion
 
         #region Input

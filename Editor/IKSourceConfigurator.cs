@@ -68,11 +68,14 @@ namespace Rehcub
             {
                 //TODO: Make a toggle with has root motion
                 _animationData = _iKSource.CreateIKAnimation();
+
                 if (AssetDatabase.IsValidFolder("Assets/IKAnimations") == false)
                     AssetDatabase.CreateFolder("Assets", "IKAnimations");
+
                 string name = AssetDatabase.GenerateUniqueAssetPath($"Assets/IKAnimations/{_animationData.animationName}.asset");
                 AssetDatabase.CreateAsset(_animationData, name);
                 AssetDatabase.SaveAssets();
+
                 _iKSource.ResetToTPose();
             }
 
@@ -81,12 +84,6 @@ namespace Rehcub
                 _iKSource.ResetToTPose();
 
             Apply();
-
-            if (_animationData == null)
-                return;
-
-            SerializedObject serializedAnimation = new SerializedObject(_animationData);
-            EditorGUILayout.PropertyField(serializedAnimation.FindProperty("animation"));
         }
 
         private void StartPlayingAnimation()

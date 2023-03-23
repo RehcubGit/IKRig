@@ -13,7 +13,7 @@ namespace Rehcub
 
         public override void OnInspectorGUI () 
         {
-            base.OnInspectorGUI();
+            //base.OnInspectorGUI();
             if (GUILayout.Button("Show Configurator"))
             {
                 ArmatureBuilderWindow.ShowConfigurator((ArmatureBuilder)target);

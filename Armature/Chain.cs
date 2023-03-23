@@ -7,6 +7,7 @@ namespace Rehcub
     {
         [SerializeField] protected Bone[] _bones;
         [ReadOnly]
+        [Tooltip("The number of bones in the chain")]
         public int count;
 
         public SourceSide side;
@@ -18,6 +19,7 @@ namespace Rehcub
         public Vector3 alternativeUp = Vector3.up;
 
         [ReadOnly]
+        [Tooltip("The length of all bones combined")]
         public float length;
 
         [SerializeReference] public Solver solver;
@@ -32,16 +34,15 @@ namespace Rehcub
         {
             _bones = bones;
             count = bones.Length;
-            Debug.Log(count);
 
             ComputeLength();
-            ComputeForwardAxis(bones[0], bones[1]);
+            ComputeForwardAxis();
 
             switch (count)
             {
                 case 1:
                 case 2:
-                    solver = null;
+                    solver = new BoneSolver(this);
                     break;
                 case 3:
                     solver = new LimbSolver(this);
@@ -64,16 +65,12 @@ namespace Rehcub
             alternativeUp = chain.alternativeUp; 
         }
 
-        public void Solve(Armature armature, IKChain ikChain)
-        {
-            BoneTransform parentTransform = armature.currentPose.GetParentModelTransform(First());
-            solver.Check(this);
-            solver.Solve(armature.bindPose, armature.currentPose, ikChain, parentTransform);
-        }
+        public void Solve(Armature armature, IKChain ikChain) => Solve(armature, armature.currentPose, ikChain);
 
-        public void Solve(Armature armature, IKChain ikChain, Pose pose)
+        public void Solve(Armature armature, Pose pose, IKChain ikChain) => Solve(armature, pose, ikChain, pose.GetParentModelTransform(First()));
+        public void Solve(Armature armature, IKChain ikChain, BoneTransform parentTransform) => Solve(armature, armature.currentPose, ikChain, parentTransform);
+        public void Solve(Armature armature, Pose pose, IKChain ikChain, BoneTransform parentTransform)
         {
-            BoneTransform parentTransform = pose.GetParentModelTransform(First());
             solver.Check(this);
             solver.Solve(armature.bindPose, pose, ikChain, parentTransform);
         }
@@ -96,17 +93,29 @@ namespace Rehcub
             alternativeUp = left;
         }
 
-        public void ComputeForwardAxis(Bone a, Bone b)
+        public void ComputeForwardAxis()
         {
-            Vector3 forward = b.model.position - a.model.position;
-            alternativeForward = (a.model.rotation * forward).normalized;
-            alternativeUp = (a.model.rotation * Vector3.forward).normalized;
+            if (_bones.Length <= 1)
+                return;
+
+            Bone a = _bones[0];
+            Bone b = _bones[1];
+
+            alternativeForward = a.model.InverseTransformDirection(b.model.position - a.model.position).normalized; 
+            Vector3 left = alternativeForward.OrthogonalVector();
+            alternativeUp = left;
         }
 
         public Bone First() => _bones.First();
         public Bone Last() => _bones.Last();
         private void ComputeLength()
         {
+            if(_bones.Length == 1)
+            {
+                length = _bones[0].length;
+                return;
+            }
+
             int end = _bones.Length - 1;
             float sum = 0;
 

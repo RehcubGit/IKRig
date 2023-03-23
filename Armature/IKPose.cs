@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Rehcub
 {
@@ -70,30 +69,68 @@ namespace Rehcub
 			return newPose;
 		}
 
-        public IKPose Modify(Armature armature, IKAnimationData animationData) => Modify(armature, animationData.GetModifiers());
-
-        public IKPose Modify(Armature armature, List<BoneConstraint> modifiers)
+		public IKChain GetIKChain(SourceChain sourceChain, SourceSide sourceSide)
         {
-			IKPose newPose = Copy();
-
-			foreach (BoneConstraint constraint in modifiers)
-			{
-				if (constraint == null)
-					continue;
-
-				if (constraint.visible == false)
-					continue;
-				constraint.Apply(newPose, armature);
+            switch (sourceSide)
+            {
+                case SourceSide.LEFT:
+                    switch (sourceChain)
+                    {
+                        case SourceChain.LEG:
+                            return leftLeg;
+                        case SourceChain.ARM:
+                            return leftArm;
+                    }
+                    break;
+                case SourceSide.RIGHT:
+					switch (sourceChain)
+					{
+						case SourceChain.LEG:
+							return rightLeg;
+						case SourceChain.ARM:
+							return rightArm;
+						default:
+							break;
+					}
+					break;
+				case SourceSide.MIDDLE:
+                    return spine;
 			}
-			return newPose;
+			return null;
 		}
 
-		public IKPose Modify(Armature armature, BoneConstraint modifier)
-        {
-			IKPose newPose = Copy();
-			modifier.Apply(newPose, armature);
-
-			return newPose;
+		public void SetIKChain(IKChain chain, SourceChain sourceChain, SourceSide sourceSide)
+		{
+			switch (sourceSide)
+			{
+				case SourceSide.LEFT:
+					switch (sourceChain)
+					{
+						case SourceChain.LEG:
+							leftLeg = chain;
+							break;
+						case SourceChain.ARM:
+							leftArm = chain;
+							break;
+					}
+					break;
+				case SourceSide.RIGHT:
+					switch (sourceChain)
+					{
+						case SourceChain.LEG:
+							rightLeg = chain;
+							break;
+						case SourceChain.ARM:
+							rightArm = chain;
+							break;
+						default:
+							break;
+					}
+					break;
+				case SourceSide.MIDDLE:
+					spine = chain;
+					break;
+			}
 		}
 
 		public Vector3 GetRootMotion(Armature armature, bool scaled = false)
@@ -120,35 +157,36 @@ namespace Rehcub
 			return scaledMotion;
 		}
 
-		public void ApplyPose(Armature armature)
+        public void ApplyPose(Armature armature) => ApplyPose(armature, armature.currentPose);
+        public void ApplyPose(Armature armature, Pose pose)
 		{
-			ApplyHip(armature);
+			ApplyHip(armature, pose);
 
-			ApplyChains(armature, armature.GetChains(SourceChain.SPINE), spine);
+			ApplyChains(armature, pose, armature.GetChains(SourceChain.SPINE), spine);
 
-			ApplyChains(armature, armature.GetChains(SourceChain.LEG, SourceSide.LEFT), leftLeg);
-			ApplyBones(armature, armature.GetBones(SourceBone.TOE, SourceSide.LEFT), leftToe);
-			ApplyChains(armature, armature.GetChains(SourceChain.LEG, SourceSide.RIGHT), rightLeg);
-			ApplyBones(armature, armature.GetBones(SourceBone.TOE, SourceSide.RIGHT), rightToe);
+			ApplyChains(armature, pose, armature.GetChains(SourceChain.LEG, SourceSide.LEFT), leftLeg);
+			ApplyBones(armature, pose, armature.GetBones(SourceBone.TOE, SourceSide.LEFT), leftToe);
+			ApplyChains(armature, pose, armature.GetChains(SourceChain.LEG, SourceSide.RIGHT), rightLeg);
+			ApplyBones(armature, pose, armature.GetBones(SourceBone.TOE, SourceSide.RIGHT), rightToe);
 
-			ApplyBones(armature, armature.GetBones(SourceBone.SHOULDER, SourceSide.LEFT), leftShoulder);
-			ApplyChains(armature, armature.GetChains(SourceChain.ARM, SourceSide.LEFT), leftArm);
+			ApplyBones(armature, pose, armature.GetBones(SourceBone.SHOULDER, SourceSide.LEFT), leftShoulder);
+			ApplyChains(armature, pose, armature.GetChains(SourceChain.ARM, SourceSide.LEFT), leftArm);
 
-			ApplyBones(armature, armature.GetBones(SourceBone.SHOULDER, SourceSide.RIGHT), rightShoulder);
-			ApplyChains(armature, armature.GetChains(SourceChain.ARM, SourceSide.RIGHT), rightArm);
+			ApplyBones(armature, pose, armature.GetBones(SourceBone.SHOULDER, SourceSide.RIGHT), rightShoulder);
+			ApplyChains(armature, pose, armature.GetChains(SourceChain.ARM, SourceSide.RIGHT), rightArm);
 
-			ApplyBones(armature, armature.GetBones(SourceBone.HEAD), head);
+			ApplyBones(armature, pose, armature.GetBones(SourceBone.HEAD), head);
 
-			ApplyChains(armature, armature.GetChains(SourceChain.NONE), null);
+			ApplyChains(armature, pose, armature.GetChains(SourceChain.NONE), null);
 		}
 
-		public void ApplyHip(Armature armature)
+        public void ApplyHip(Armature armature, Pose pose)
 		{
 			Bone bind = armature.GetBones(SourceBone.HIP)[0];
-			BoneTransform hip = CalculateHip(armature);
+			BoneTransform hip = CalculateHip(armature.bindPose);
 
-			BoneTransform bindLocal = armature.bindPose.GetLocalTransform(bind);
-			BoneTransform bindModel = armature.bindPose.GetModelTransform(bind);
+			BoneTransform bindLocal = armature.bindPose.GetLocalTransform(SourceBone.HIP);
+			BoneTransform bindModel = armature.bindPose.GetModelTransform(SourceBone.HIP);
 
 			BoneTransform parent = bindModel - bindLocal;
 			BoneTransform local = parent - hip;
@@ -157,29 +195,22 @@ namespace Rehcub
 			{
 				BoneTransform poseParent = parent + (bindModel - hip);
 				poseParent.position = this.hip.GetPosition(parent);
-				armature.currentPose.SetBoneModel(bind.parentName, poseParent);
+				pose.SetBoneModel(bind.parentName, poseParent);
 				return;
 			}
 
-            armature.currentPose.SetBoneLocal(bind.boneName, local);
-            armature.currentPose.SetBoneModel(bind.boneName, hip);
+            pose.SetBoneLocal(bind.boneName, local);
+            pose.SetBoneModel(bind.boneName, hip);
 		}
 
-		public BoneTransform CalculateHip(Armature armature)
+		public BoneTransform CalculateHip(BindPose bindPose)
 		{
-			BoneTransform bindLocal = armature.bindPose.GetLocalTransform(SourceBone.HIP);
-			BoneTransform bindModel = armature.bindPose.GetModelTransform(SourceBone.HIP);
+			BoneTransform bindModel = bindPose.GetModelTransform(SourceBone.HIP);
 
-			Quaternion childRotation = bindLocal.rotation;
+			Quaternion childRotation = bindModel.rotation;
 			Vector3 alternativeLook = Vector3.forward;
 
-			Quaternion inverseBind = Quaternion.Inverse(bindModel.rotation);
-			alternativeLook = inverseBind * alternativeLook;
-
-			Vector3 currentLook = childRotation * alternativeLook;
-
-			//TODO: If the hip should be fixed to the oriantation in the rig than fix alt_look to Vector3.forward!!
-			Quaternion finalRotation = Quaternion.FromToRotation(currentLook, hip.direction) * childRotation;
+			Quaternion finalRotation = Quaternion.FromToRotation(alternativeLook, hip.direction) * childRotation;
 			
 			if (hip.twist != 0) 
 				finalRotation = Quaternion.AngleAxis(hip.twist, hip.direction) * finalRotation;
@@ -188,36 +219,39 @@ namespace Rehcub
             return new BoneTransform(pos, finalRotation);
 		}
 
-
-		private void ApplyBones(Armature armature, Bone[] bones, IKBone ikBone)
+        private void ApplyBones(Armature armature, Pose pose, Bone[] bones, IKBone ikBone)
 		{
 			foreach (Bone bone in bones)
 			{
-				bone.Solve(armature, ikBone);
+				bone.Solve(armature, pose, ikBone);
 			}
 		}
 
-		private void ApplyChain(Armature armature, Chain chain, IKChain ikChain)
+
+		private void ApplyChain(Armature armature, Pose pose, Chain chain, IKChain ikChain)
 		{
 			if (chain.solver == null)
 				return;
 
+
+			chain.Solve(armature, pose, ikChain);
 			if (ikChain == null)
 				return;
-
-			chain.Solve(armature, ikChain);
 
 			if (ikChain.endEffector == null)
 				return;
 
-			chain.Last().Solve(armature, ikChain.endEffector);
+			if (chain.count == 1)
+				return;
+
+			chain.Last().Solve(armature, pose, ikChain.endEffector);
         }
 
-		private void ApplyChains(Armature armature, Chain[] chains, IKChain ikChain)
+        private void ApplyChains(Armature armature, Pose pose, Chain[] chains, IKChain ikChain)
 		{
             foreach (Chain chain in chains)
             {
-				ApplyChain(armature, chain, ikChain);
+				ApplyChain(armature, pose, chain, ikChain);
             }
         }
 

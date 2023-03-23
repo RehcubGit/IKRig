@@ -8,6 +8,9 @@ namespace Rehcub
 		public Vector3 direction;
 		public Vector3 twist;
 
+		public Axis axis;
+		public Axis sourceAxis;
+
         public IKBone() {}
 
         public IKBone(Vector3 direction, Vector3 twist)
@@ -20,8 +23,9 @@ namespace Rehcub
 		{
 			IKBone copy = new IKBone
 			{
-				direction = direction.Copy(),
-				twist = twist.Copy()
+				direction = direction.normalized,
+				twist = twist.normalized,
+				sourceAxis = sourceAxis
 			};
 
 			return copy;
@@ -35,8 +39,9 @@ namespace Rehcub
 				return to;
 			IKBone blended = new IKBone
 			{
-				direction = Vector3.Lerp(from.direction, to.direction, t),
-				twist = Vector3.Lerp(from.twist, to.twist, t)
+				direction = Vector3.Lerp(from.direction, to.direction, t).normalized,
+				twist = Vector3.Lerp(from.twist, to.twist, t).normalized,
+				sourceAxis = from.sourceAxis
 			};
 
 			return blended;
@@ -50,8 +55,9 @@ namespace Rehcub
 				return to;
 			IKBone blended = new IKBone
 			{
-				direction = Vector3.Slerp(from.direction, to.direction, t),
-				twist = Vector3.Slerp(from.twist, to.twist, t)
+				direction = Vector3.Slerp(from.direction, to.direction, t).normalized,
+				twist = Vector3.Slerp(from.twist, to.twist, t).normalized,
+				sourceAxis = from.sourceAxis
 			};
 
 			return blended;

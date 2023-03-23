@@ -24,12 +24,9 @@ namespace Rehcub
             Axis axis = GetAxis(ikChain);
 
             Quaternion rot = AimBone(bindPose, parentTransform, axis);
-
             rad = LawCosSSS(aLen, cLen, bLen);
             rot = Quaternion.AngleAxis(-rad * Mathf.Rad2Deg, axis.left) * rot;
-            rot = Quaternion.Inverse(parentTransform.rotation) * rot;
-
-            pose.SetBoneLocal(poseA.boneName, rot);
+            pose.SetBoneModel(poseA.boneName, rot);
 
             Vector3 a = bindPose.GetModelTransform(_chain[1]).position - bindPose.GetModelTransform(_chain[0]).position;
             Vector3 b = bindPose.GetModelTransform(_chain[2]).position - bindPose.GetModelTransform(_chain[1]).position;
@@ -41,23 +38,24 @@ namespace Rehcub
             rad = Mathf.PI - LawCosSSS(aLen, bLen, cLen);
             rot = poseA.model.rotation * bindPose.GetLocalTransform(_chain[1]).rotation;
             rot = Quaternion.AngleAxis(rad * Mathf.Rad2Deg, axis.left) * rot;
-            rot = Quaternion.Inverse(poseA.model.rotation) * rot;
             //FIX for non perfect tpose
-            rot *= Quaternion.Inverse(localRot);
-            //rot *= Quaternion.Inverse(bind_b.local.rotation); 
+            //rot *= Quaternion.Inverse(localRot);
+            pose.SetBoneModel(poseB.boneName, rot);
 
-            pose.SetBoneLocal(poseB.boneName, rot);
 
 
             Bone poseC = pose[_chain[2].boneName];
 
             if(poseC.parentName.Equals(poseB.boneName) == false)
             {
-                Vector3 d = bindPose.GetModelTransform(poseC).position - bindPose.GetModelTransform(poseB).position;
+                /*Vector3 d = bindPose.GetModelTransform(poseC).position - bindPose.GetModelTransform(poseB).position;
                 Quaternion r = pose.GetModelTransform(poseB).rotation * Quaternion.Inverse(bindPose.GetModelTransform(poseB).rotation);
                 d = r * d;
                 d += pose.GetModelTransform(poseB).position;
-                pose.SetBoneModel(poseC.boneName, d);
+                pose.SetBoneModel(poseC.boneName, d);*/
+                BoneTransform poseBModel = pose.GetModelTransform(_chain[1]);
+                Vector3 test = poseBModel.TransformPoint(poseB.alternativeForward * bLen);
+                pose.SetBoneModel(poseC.boneName, test);
             }
 
         }

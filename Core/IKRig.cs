@@ -1,55 +1,45 @@
 ﻿using UnityEngine;
+using UnityEngine.Events;
 
 namespace Rehcub 
 {
     [SelectionBase]
     public class IKRig : MonoBehaviour
     {
-        [SerializeField] private Transform _rootBone;
-        [SerializeField] private AnimationClip _tPose;
-
         [SerializeField] public IKAnimationData[] _animations;
 
         public Armature Armature { get => _armature; }
         [SerializeField] private Armature _armature;
 
         private Transform _transform;
+        private bool _useUnityAnimator;
 
         public System.Action onPreApplyPose;
+        public System.Action onPostApplyPose;
         public System.Action<IKPose> onPreApplyIkPose;
+
+
+        [SerializeField] private UnityEvent _unityOnPreApplyPose;
 
         private void Awake() => Init();
 
         public void Init() 
         { 
             _transform = transform;
+            _useUnityAnimator = TryGetComponent<UnityEngine.Animator>(out _);
         }
-        public void Init(Armature armature) 
-        { 
-            _transform = transform;
+        public void Create(Armature armature) 
+        {
             _armature = armature;
         }
 
-        private void Update()
+        private void LateUpdate()
         {
-            if (_transform.hasChanged)
-            {
-                _armature.currentPose.rootTransform = new BoneTransform(_transform);
-                ApplyPose();
-                _transform.hasChanged = false;
-            }
-        }
+            if (_useUnityAnimator == false)
+                return;
 
-        private IKPose Modify(IKAnimationData animationData, IKPose pose)
-        {
-            pose = pose.Modify(_armature, animationData);
-            return pose;
-        }
-        private IKPose Modify(IKAnimationData animationData, int frame)
-        {
-            IKPose pose = animationData.animation.GetFrame(frame);
-            pose = pose.Modify(_armature, animationData);
-            return pose;
+            _armature.UpdatePose();
+            ApplyPose();
         }
 
         public void ApplyIkPose(IKAnimationData animationData, int frame)
@@ -65,8 +55,6 @@ namespace Rehcub
 
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
             _armature.scale = _transform.localScale;
-
-            pose = Modify(animationData, pose);
 
             onPreApplyIkPose?.Invoke(pose);
             pose.ApplyPose(_armature);
@@ -95,8 +83,15 @@ namespace Rehcub
             ApplyPose();
         }
 
-        public void ApplyIkPose(IKPose pose)
+        public void ApplyIkPose(IKPose pose, bool extrectRootMotion = false)
         {
+            if (extrectRootMotion)
+            {
+                Vector3 rootMotion = pose.GetDeltaRootMotion(_armature);
+                rootMotion.Scale(_transform.localScale);
+                _transform.position += _transform.rotation * rootMotion;
+            }
+
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
             _armature.scale = _transform.localScale;
 
@@ -105,18 +100,25 @@ namespace Rehcub
             ApplyPose();
         }
 
-        public void ApplyPose(Pose pose)
+        public void ApplyPose(Pose pose, bool extrectRootMotion = false)
         {
-            _transform.position = pose.rootTransform.position;
+            if (extrectRootMotion)
+            {
+                _transform.position += _transform.rotation * pose.rootTransform.position;
+            }
+
             _armature.currentPose = pose;
             _armature.scale = _transform.localScale;
+
             ApplyPose();
         }
 
         public void ApplyPose()
         {
+            _unityOnPreApplyPose?.Invoke();
             onPreApplyPose?.Invoke();
             _armature.ApplyPose();
+            onPostApplyPose?.Invoke();
         }
 
         public Animation GetAnimation(IKAnimationData animationData)
@@ -143,17 +145,6 @@ namespace Rehcub
             _transform.localScale = Vector3.one;
             _armature.scale = _transform.localScale;
             _armature.ApplyBindPose();
-            _armature.currentPose.rootTransform = BoneTransform.zero;
-            _armature.UpdatePose();
-        }
-
-        public void ResetToTPose()
-        {
-            _transform.position = Vector3.zero;
-            _transform.rotation = Quaternion.identity;
-            _transform.localScale = Vector3.one;
-            _armature.scale = _transform.localScale;
-            _tPose.SampleAnimation(gameObject, 0);
             _armature.currentPose.rootTransform = BoneTransform.zero;
             _armature.UpdatePose();
         }

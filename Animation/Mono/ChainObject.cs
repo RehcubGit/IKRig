@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Rehcub
 {
@@ -8,53 +7,64 @@ namespace Rehcub
     {
         [SerializeField] private IKRig _rig;
 
-        [SerializeField] private List<Transform> _bones;
-
         [SerializeField] private SourceChain _sourceChain;
         [SerializeField] private SourceSide _sourceSide;
 
-        private Chain _chain;
-        private Armature _armature;
+        [SerializeField] private Transform[] _chain;
+        private float chainLength = 1;
+        [SerializeField] private Transform _fixPoint;
 
-        private Vector3 start;
+
 
         private void OnEnable()
         {
-            _rig.onPreApplyIkPose += Apply;
-            start = transform.position;
+            //_rig.onPreApplyIkPose += ApplyIK;
+            _rig.onPreApplyPose += Apply;
+
+            chainLength = 0;
+            for (int i = 1; i < _chain.Length; i++)
+            {
+                chainLength += Vector3.Distance(_chain[i].position, _chain[i - 1].position);
+            }
         }
 
         private void OnDisable()
         {
-            _rig.onPreApplyIkPose -= Apply;
+            //_rig.onPreApplyIkPose -= ApplyIK;
+            _rig.onPreApplyPose -= Apply;
         }
 
-        private void Start()
+        private void Apply()
         {
+            Chain chain = _rig.Armature.GetChains(_sourceChain, _sourceSide).First();
+
+            Vector3 root = _rig.Armature.currentPose.GetModelTransform(SourceBone.HIP).position.SetY(0);
+
+            Vector3 start = _rig.Armature.currentPose.GetModelTransform(chain.First()).position;
+            Vector3 end = _rig.Armature.currentPose.GetModelTransform(chain.Last()).position;
+
+            Vector3 direction = end - start;
+
+            Quaternion q = Quaternion.FromToRotation(Vector3.down, direction);
+            _chain.First().rotation = q;
+
+            end = _fixPoint.position + direction + root;
+            start = end - direction.normalized * chainLength;
+
+            _chain.First().position = start;
         }
 
-        /*private void Apply(IKPose pose)
+        private void ApplyIK(IKPose pose)
         {
             IKChain ikChain = GetIkChain(pose);
             Quaternion q = Quaternion.FromToRotation(Vector3.down, ikChain.direction);
-            transform.rotation = q;
+            _chain.First().rotation = q;
 
-            transform.position = start.AddY((1f - ikChain.lengthScale));
-        }*/
+            Vector3 direction = ikChain.direction * (chainLength * ikChain.lengthScale);
+            Vector3 end = _fixPoint.position + direction;
+            Vector3 start = end - ikChain.direction * chainLength;
 
-        private void Apply(IKPose pose)
-        {
-            _chain.Solve(_armature, GetIkChain(pose));
-
-            for (int i = 0; i < _bones.Count; i++)
-            {
-                Bone bone = _armature.currentPose[_bones[i].name];
-
-                BoneTransform model = _armature.currentPose.CalculateParentModelTransform(bone) + bone.local;
-                bone.model = model;
-
-                _bones[i].SetPositionAndRotation(model.position, model.rotation);
-            }
+            _chain.First().position = start;
         }
 
         private IKChain GetIkChain(IKPose pose)
@@ -80,18 +90,6 @@ namespace Rehcub
             }
         }
 
-        private void OnValidate()
-        {
-            List<Bone> bones = new List<Bone>();
-            List<Chain> chains = new List<Chain>();
 
-            for (int i = 0; i < _bones.Count; i++)
-            {
-                bones.Add(new Bone(_bones[i]));
-            }
-            _chain = new Chain(bones.ToArray());
-            chains.Add(_chain);
-            _armature = new Armature(_bones, bones, chains);
-        }
     }
 }

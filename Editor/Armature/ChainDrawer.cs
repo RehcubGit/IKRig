@@ -15,6 +15,19 @@ namespace Rehcub
         private string[] _solverMenuContent;
         private string _solverName;
 
+        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        {
+            if (property.isExpanded)
+            {
+                float y = EditorGUI.GetPropertyHeight(property.FindPropertyRelative("alternativeForward"));
+                y += EditorGUI.GetPropertyHeight(property.FindPropertyRelative("alternativeUp"));
+                y += EditorGUI.GetPropertyHeight(property.FindPropertyRelative("solver"));
+
+                return EditorGUIUtility.singleLineHeight * 6f + y;
+            }
+            return EditorGUIUtility.singleLineHeight;
+        }
+
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
             SerializedProperty side = property.FindPropertyRelative("side");
@@ -22,13 +35,16 @@ namespace Rehcub
 
             string name = side.enumDisplayNames[side.enumValueIndex] + " " + chain.enumDisplayNames[chain.enumValueIndex];
 
-            property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, name, true, "Foldout");
+            Rect rect = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
+
+            property.isExpanded = EditorGUI.Foldout(rect, property.isExpanded, name, true, "Foldout"); 
+            rect.y += EditorGUIUtility.singleLineHeight;
 
             if (property.isExpanded == false)
                 return;
 
             EditorGUI.indentLevel++;
-            SerializedProperty bonesProp = property.FindPropertyRelative("_bones");
+            /*SerializedProperty bonesProp = property.FindPropertyRelative("_bones");
 
             bonesProp.isExpanded = EditorGUILayout.Foldout(bonesProp.isExpanded, bonesProp.displayName, true);
 
@@ -40,19 +56,29 @@ namespace Rehcub
                     EditorGUILayout.PropertyField(bonesProp.GetArrayElementAtIndex(i));
                 }
                 EditorGUI.indentLevel--;
-            }
+            }*/
 
-            DrawProperty(property, "count");
-            DrawProperty(property, "length");
+            DrawProperty(ref rect, property, "count");
+            DrawProperty(ref rect, property, "length");
 
-            DrawProperty(property, "side");
-            DrawProperty(property, "source");
+            DrawProperty(ref rect, property, "side");
+            DrawProperty(ref rect, property, "source");
 
-            DrawProperty(property, "alternativeForward");
-            DrawProperty(property, "alternativeUp");
+            //rect.y += EditorGUIUtility.singleLineHeight;
+            DrawProperty(ref rect, property, "alternativeForward");
+            DrawProperty(ref rect, property, "alternativeUp");
 
-            DrawSolverPanel(property);
-            DrawProperty(property, "solver");
+            DrawSolverPanel(rect, property);
+            rect.y += EditorGUIUtility.singleLineHeight;
+            DrawProperty(ref rect, property, "solver");
+/*
+            if(GUI.Button(rect, "Reset Solver"))
+                property.FindPropertyRelative("solver").GetValue<Solver>().Reset();
+            rect.y += EditorGUIUtility.singleLineHeight;*/
+
+            /*object solver = property.FindPropertyRelative("solver").GetValue();
+            EditorCools.Editor.ButtonsDrawer buttonsDrawer = new EditorCools.Editor.ButtonsDrawer(solver);
+            buttonsDrawer.DrawButtons(solver);*/
 
             EditorGUI.indentLevel--;
         }
@@ -62,8 +88,14 @@ namespace Rehcub
             SerializedProperty prop = property.FindPropertyRelative(name);
             EditorGUILayout.PropertyField(prop, true);
         }
+        private static void DrawProperty(ref Rect rect, SerializedProperty property, string name)
+        {
+            SerializedProperty prop = property.FindPropertyRelative(name);
+            EditorGUI.PropertyField(rect, prop, true);
+            rect.y += EditorGUI.GetPropertyHeight(prop);
+        }
 
-        private void DrawSolverPanel(SerializedProperty chainProperty)
+        private void DrawSolverPanel(Rect rect, SerializedProperty chainProperty)
         {
             SerializedProperty solverProperty = chainProperty.FindPropertyRelative("solver");
 
@@ -71,26 +103,25 @@ namespace Rehcub
             {
                 _solverTypes = GetTypes(typeof(Solver));
                 _solverMenuContent = _solverTypes.Select((t) => t.Name).ToArray();
-                _solverName = GetSolverName(solverProperty);
             }
 
 
+            _solverName = GetSolverName(solverProperty);
 
-            bool buttonResult;
-            using (new GUILayout.HorizontalScope(GUILayout.ExpandWidth(true)))
-            {
-                GUILayout.Space(EditorGUI.indentLevel * 15f);
-                buttonResult = GUILayout.Button(_solverName, EditorStyles.popup);
-            }
+            //rect.x = EditorGUI.indentLevel * 15f;
+            rect.xMin += EditorGUI.indentLevel * 15f;
+            bool buttonResult = GUI.Button(rect, _solverName, EditorStyles.popup);
 
-            if (Event.current.type == EventType.Repaint)
-            {
-                _solverPopupRect = GUILayoutUtility.GetLastRect();
-                _solverPopupRect.xMin += EditorGUI.indentLevel * 15f;
-                _solverPopupRect.width = Mathf.Clamp(_solverPopupRect.width, 0, 250);
-            }
+            //rect.width = Mathf.Clamp(_solverPopupRect.width, 0, 250);
+            _solverPopupRect = rect;
+
             if (buttonResult)
             {
+                SerializedProperty side = chainProperty.FindPropertyRelative("side");
+                SerializedProperty sChain = chainProperty.FindPropertyRelative("source");
+
+                string name = side.enumDisplayNames[side.enumValueIndex] + " " + sChain.enumDisplayNames[sChain.enumValueIndex];
+                Debug.Log(name);
                 _solverPopup = PopupExample.Init(_solverPopupRect, _solverMenuContent, index => SelectionCallback(index, chainProperty, solverProperty));
                 PopupWindow.Show(_solverPopupRect, _solverPopup);
             }
@@ -101,6 +132,12 @@ namespace Rehcub
             Chain chain = chainProperty.GetValue() as Chain;
             Solver solver = System.Activator.CreateInstance(_solverTypes.ElementAt(index), chain) as Solver;
 
+
+            SerializedProperty side = chainProperty.FindPropertyRelative("side");
+            SerializedProperty sChain = chainProperty.FindPropertyRelative("source");
+
+            string name = side.enumDisplayNames[side.enumValueIndex] + " " + sChain.enumDisplayNames[sChain.enumValueIndex];
+            Debug.Log(name);
             string solverName = GetSolverName(solver);
             if (solver.ValidateChain(chain) == false)
             {

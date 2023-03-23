@@ -12,8 +12,10 @@ namespace Rehcub
         public BindPose(List<Bone> boneList)
         {
             _bones = new BoneDictionary();
-            foreach (Bone bone in boneList) 
+            foreach (Bone bone in boneList)
+            {
                 AddBone(bone);
+            }
         }
 
         private void AddBone(Bone bone) => _bones.Add(bone.boneName, bone);
@@ -52,11 +54,16 @@ namespace Rehcub
         {
             if (_bones.TryGetValue(bone.parentName, out Bone parent))
                 return parent.model;
-            Debug.LogError($"Parent {bone.parentName} of Bone {bone.boneName} not found!");
+            //Debug.LogError($"Parent {bone.parentName} of Bone {bone.boneName} not found!");
             return BoneTransform.zero;
         }
 
         public BoneTransform GetParentWorldTransform(string boneName, BoneTransform root) => root + GetParentModelTransform(boneName);
         public BoneTransform GetParentWorldTransform(Bone bone, BoneTransform root) => root + GetParentModelTransform(bone);
+
+        public float GetLength(Bone bone) => GetBone(bone.boneName).length;
+
+        public Axis GetAxis(Bone bone) => new Axis(GetBone(bone.boneName).alternativeForward, GetBone(bone.boneName).alternativeUp); 
+        public Axis GetAxis(string boneName) => new Axis(GetBone(boneName).alternativeForward, GetBone(boneName).alternativeUp); 
     }
 }

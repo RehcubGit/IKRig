@@ -21,11 +21,59 @@ namespace Rehcub
 
         #region int
 
+        public static int Mod(this int x, int period)
+        {
+            int r = x % period;
+            return (r >= 0 ? r : r + period);
+        }
+
+        public static int Mod(this int x) { return x.Mod(1); }
+        public static int CyclicDiff(int high, int low, int period) => CyclicDiff(high, low, period, false);
+        public static int CyclicDiff(int high, int low) => CyclicDiff(high, low, 1, false);
+        public static int CyclicDiff(int high, int low, int period, bool skipWrap)
+        {
+            if (!skipWrap)
+            {
+                high = Mod(high, period);
+                low = Mod(low, period);
+            }
+            return (high >= low ? high - low : high + period - low);
+        }
+
         public static int WithRandomSign(this int value, float negativeProbability = 0.5f) => Random.value < negativeProbability ? -value : value;
+
         #endregion
 
         #region float
+
+
+        public static float Mod(this float x, float period)
+        {
+            float r = x % period;
+            if (r >= 0)
+                return r;
+            return r + period;
+        }
+        public static float Mod(this float x) => x.Mod(1);
         public static float Frac(this float x) => x - Mathf.Floor(x);
+
+
+        public static float CyclicDiff(float high, float low) => CyclicDiff(high, low, 1, false);
+        public static float CyclicDiff(float high, float low, float period) => CyclicDiff(high, low, period, false);
+        public static float CyclicDiff(float high, float low, float period, bool skipWrap)
+        {
+            if (skipWrap == false)
+            {
+                high = Mod(high, period);
+                low = Mod(low, period);
+            }
+
+            if (high >= low)
+                return high - low;
+            return high + period - low;
+
+            //return (high >= low ? high - low : high + period - low);
+        }
 
         public static float LinearRemap(this float value, float valueRangeMin, float valueRangeMax, float newRangeMin, float newRangeMax)
         {
@@ -69,19 +117,26 @@ namespace Rehcub
             return new Vector2(ca * v.x - sa * v.y, sa * v.x + ca * v.y);
         }
         public static Vector2 RotateAround(this Vector2 v, Vector2 pivot, float angRad) => Rotate(v - pivot, angRad) + pivot;
-        public static float DirectionToAngle(this Vector2 v) => Mathf.Atan2(v.y, v.x); 
-        public static float SqDistPointSegment(this Vector2 p, Vector2 a, Vector2 b)
+        public static float DirectionToAngle(this Vector2 v) => Mathf.Atan2(v.y, v.x);
+
+
+        //https://arrowinmyknee.com/2021/03/15/some-math-about-capsule-collision/
+        public static float SqrDistanceSegment(this Vector2 p, Vector2 a, Vector2 b)
         {
             Vector2 ab = b - a;
             Vector2 ac = p - a;
             Vector2 bc = p - b;
             float e = Vector2.Dot(ac, ab);
+
             // Handle cases where c projects outside ab
-            if (e <= 0.0f) return Vector2.Dot(ac, ac);
-            float f = Vector2.Dot(ab, ab);
-            if (e >= f) return Vector2.Dot(bc, bc);
+            if (e <= 0.0f) 
+                return ac.sqrMagnitude;
+
+            float f = ab.sqrMagnitude;
+            if (e >= f) 
+                return bc.sqrMagnitude;
             // Handle cases where c projects onto ab
-            return Vector2.Dot(ac, ac) - e * e / f;
+            return ac.sqrMagnitude - e * e / f;
         }
 
         #endregion
@@ -112,6 +167,11 @@ namespace Rehcub
             Vector3 ab = b - a;
             return a + (ab * t) + (amp * Mathf.Sin(tPi) * Vector3.up);
         }
+        public static Vector3 ConstantSlerp(Vector3 from, Vector3 to, float angle)
+        {
+            float value = Mathf.Min(1, angle / Vector3.Angle(from, to));
+            return Vector3.Slerp(from, to, value);
+        }
 
         public static Vector3 Copy(this Vector3 v) => new Vector3(v.x, v.y, v.z);
         
@@ -133,14 +193,19 @@ namespace Rehcub
             float d = Vector3.Dot(point - pointOnLine, lineDirection);
             return pointOnLine + (lineDirection * d);
         }
-        
+
+        public static Vector3 SetHeight(Vector3 originalVector, Vector3 referenceHeightVector, Vector3 upVector)
+        {
+            Vector3 originalOnPlane = Vector3.ProjectOnPlane(originalVector, upVector);
+            Vector3 referenceOnAxis = Vector3.Project(referenceHeightVector, upVector);
+            return originalOnPlane + referenceOnAxis;
+        }
+
         public static Vector3 OrthogonalVector(this Vector3 v)
         {
             Vector3 result = new Vector3(v.z.Copysign(v.x), v.z.Copysign(v.y), -v.x.Copysign(v.z) - Copysign(v.y, v.z));
             return result;
         }
-
-
 
         public static Vector3 Rotate(this Vector3 v, float angRad, Vector3 axis)
         {
@@ -151,6 +216,87 @@ namespace Rehcub
         public static Vector3 RotateAround(this Vector3 point, Vector3 pivot, Quaternion rotation)
         {
             return (rotation * (point - pivot)) + pivot;
+        }
+
+        //https://arrowinmyknee.com/2021/03/15/some-math-about-capsule-collision/
+        public static float SqrDistanceSegment(this Vector3 p, Vector3 a, Vector3 b)
+        {
+            Vector3 ab = b - a;
+            Vector3 ac = p - a;
+            Vector3 bc = p - b;
+            float e = Vector3.Dot(ac, ab);
+            // Handle cases where c projects outside ab
+            if (e <= 0.0f) 
+                return ac.sqrMagnitude;
+
+            float f = ab.sqrMagnitude;
+
+            if (e >= f) 
+                return bc.sqrMagnitude;
+
+            // Handle cases where c projects onto ab
+            return ac.sqrMagnitude - e * e / f;
+        }
+
+        public static float[] GetLineSphereIntersections(Vector3 lineStart, Vector3 lineDir, Vector3 sphereCenter, float sphereRadius)
+        {
+            /*double a = lineDir.sqrMagnitude;
+            double b = 2 * (Vector3.Dot(lineStart, lineDir) - Vector3.Dot(lineDir, sphereCenter));
+            double c = lineStart.sqrMagnitude + sphereCenter.sqrMagnitude - 2*Vector3.Dot(lineStart, sphereCenter) - sphereRadius*sphereRadius;
+            double d = b*b - 4*a*c;
+            if (d<0) return null;
+            double i1 = (-b - System.Math.Sqrt(d)) / (2*a);
+            double i2 = (-b + System.Math.Sqrt(d)) / (2*a);
+            if (i1<i2) return new float[] {(float)i1, (float)i2};
+            else       return new float[] {(float)i2, (float)i1};*/
+
+            float a = lineDir.sqrMagnitude;
+            float b = 2 * (Vector3.Dot(lineStart, lineDir) - Vector3.Dot(lineDir, sphereCenter));
+            float c = lineStart.sqrMagnitude + sphereCenter.sqrMagnitude - 2 * Vector3.Dot(lineStart, sphereCenter) - sphereRadius * sphereRadius;
+            float d = b * b - 4 * a * c;
+            if (d < 0) return null;
+            float i1 = (-b - Mathf.Sqrt(d)) / (2 * a);
+            float i2 = (-b + Mathf.Sqrt(d)) / (2 * a);
+            if (i1 < i2) return new float[] { i1, i2 };
+            else return new float[] { i2, i1 };
+        }
+
+        public static void CalculateDirection(this Vector3 point, out int direction, out float distance)
+        {
+            // Calculate longest axis
+            direction = LargestComponent(point);
+            distance = point[direction];
+        }
+
+        public static Vector3 CalculateDirectionAxis(this Vector3 point)
+        {
+            CalculateDirection(point, out int direction, out float distance);
+            Vector3 axis = Vector3.zero;
+            if (distance > 0)
+                axis[direction] = 1.0f;
+            else
+                axis[direction] = -1.0f;
+            return axis;
+        }
+
+        public static int SmallestComponent(this Vector3 point)
+        {
+            int direction = 0;
+            if (Mathf.Abs(point[1]) < Mathf.Abs(point[0]))
+                direction = 1;
+            if (Mathf.Abs(point[2]) < Mathf.Abs(point[direction]))
+                direction = 2;
+            return direction;
+        }
+
+        public static int LargestComponent(this Vector3 point)
+        {
+            int direction = 0;
+            if (Mathf.Abs(point[1]) > Mathf.Abs(point[0]))
+                direction = 1;
+            if (Mathf.Abs(point[2]) > Mathf.Abs(point[direction]))
+                direction = 2;
+            return direction;
         }
 
         public static string ToString(this Vector3 v, int digits)
@@ -171,11 +317,41 @@ namespace Rehcub
 
         #region Quaternion
 
+        public static Quaternion Rotate(this Quaternion q, Vector3 angularVelocity, float deltaTime)
+        {
+            Vector3 vec = angularVelocity * deltaTime;
+            float length = vec.magnitude;
+            if (length < 1E-6F)
+                return q;    // Otherwise we'll have division by zero when trying to normalize it later on
+
+            // Convert the rotation vector to quaternion. The following 4 lines are very similar to CreateFromAxisAngle method.
+            float half = length * 0.5f;
+            float sin = Mathf.Sin(half);
+            float cos = Mathf.Cos(half);
+            // Instead of normalizing the axis, we multiply W component by the length of it. This method normalizes result in the end.
+            Quaternion rot = new Quaternion(vec.x * sin, vec.y * sin, vec.z * sin, length * cos);
+
+            rot *= q;
+            rot.Normalize();
+            // The following line is not required, only useful for people. Computers are fine with 2 different quaternion representations of each possible rotation.
+            if (rot.w < 0) 
+                rot = rot.Negate();
+            return rot;
+        }
+
+        public static Quaternion Negate(this Quaternion q) => new Quaternion(-q.x, -q.y, -q.z, -q.w);
+
         public static Quaternion ProjectOnPlane(this Quaternion q, Vector3 n)
         {
             q.ToAngleAxis(out _, out Vector3 axis);
             Quaternion rot = Quaternion.FromToRotation(axis.normalized, n.normalized);
             return Quaternion.Inverse(rot) * q;
+        }
+
+        public static Quaternion ConstantSlerp(Quaternion from, Quaternion to, float angle)
+        {
+            float value = Mathf.Min(1, angle / Quaternion.Angle(from, to));
+            return Quaternion.Slerp(from, to, value);
         }
 
         public static Quaternion Clamp(this Quaternion q, Vector3 min, Vector3 max)
@@ -372,5 +548,81 @@ namespace Rehcub
         }
         #endregion
 
+        #region Editor
+
+        //https://forum.unity.com/threads/drawing-capsule-gizmo.354634/
+        public static void DrawWireCapsule(Vector3 p1, Vector3 p2, float radius)
+        {
+            // Special case when both points are in the same position
+            if (p1 == p2)
+            {
+                // DrawWireSphere works only in gizmo methods
+                Gizmos.DrawWireSphere(p1, radius);
+                return;
+            }
+            using (new UnityEditor.Handles.DrawingScope(UnityEditor.Handles.color, Gizmos.matrix))
+            {
+                Quaternion p1Rotation = Quaternion.LookRotation(p1 - p2);
+                Quaternion p2Rotation = Quaternion.LookRotation(p2 - p1);
+
+                // Check if capsule direction is collinear to Vector.up
+                float c = Vector3.Dot((p1 - p2).normalized, Vector3.up);
+                if (c == 1f || c == -1f)
+                {
+                    // Fix rotation
+                    p2Rotation = Quaternion.Euler(p2Rotation.eulerAngles.x, p2Rotation.eulerAngles.y + 180f, p2Rotation.eulerAngles.z);
+                }
+
+                // First side
+                UnityEditor.Handles.DrawWireArc(p1, p1Rotation * Vector3.left, p1Rotation * Vector3.down, 180f, radius);
+                UnityEditor.Handles.DrawWireArc(p1, p1Rotation * Vector3.up, p1Rotation * Vector3.left, 180f, radius);
+                UnityEditor.Handles.DrawWireDisc(p1, (p2 - p1).normalized, radius);
+
+                // Second side
+                UnityEditor.Handles.DrawWireArc(p2, p2Rotation * Vector3.left, p2Rotation * Vector3.down, 180f, radius);
+                UnityEditor.Handles.DrawWireArc(p2, p2Rotation * Vector3.up, p2Rotation * Vector3.left, 180f, radius);
+                UnityEditor.Handles.DrawWireDisc(p2, (p1 - p2).normalized, radius);
+
+                // Lines
+                UnityEditor.Handles.DrawLine(p1 + p1Rotation * Vector3.down * radius, p2 + p2Rotation * Vector3.down * radius);
+                UnityEditor.Handles.DrawLine(p1 + p1Rotation * Vector3.left * radius, p2 + p2Rotation * Vector3.right * radius);
+                UnityEditor.Handles.DrawLine(p1 + p1Rotation * Vector3.up * radius, p2 + p2Rotation * Vector3.up * radius);
+                UnityEditor.Handles.DrawLine(p1 + p1Rotation * Vector3.right * radius, p2 + p2Rotation * Vector3.left * radius);
+            }
+        }
+
+        public static void DrawWireCapsule2D(Vector3 p1, Vector3 p2, float radius)
+        {
+            // Special case when both points are in the same position
+            if (p1 == p2)
+            {
+                // DrawWireSphere works only in gizmo methods
+                Gizmos.DrawWireSphere(p1, radius);
+                return;
+            }
+
+            UnityEditor.Handles.color = Gizmos.color;
+            using (new UnityEditor.Handles.DrawingScope(UnityEditor.Handles.color, Gizmos.matrix))
+            {
+                Quaternion p1Rotation = Quaternion.LookRotation(p1 - p2);
+                Quaternion p2Rotation = Quaternion.LookRotation(p2 - p1);
+
+                // Check if capsule direction is collinear to Vector.up
+                float c = Vector3.Dot((p1 - p2).normalized, Vector3.up);
+                if (c == 1f || c == -1f)
+                {
+                    // Fix rotation
+                    p2Rotation = Quaternion.Euler(p2Rotation.eulerAngles.x, p2Rotation.eulerAngles.y + 180f, p2Rotation.eulerAngles.z);
+                }
+
+                UnityEditor.Handles.DrawWireArc(p1, p1Rotation * Vector3.up, p1Rotation * Vector3.left, 180f, radius);
+                UnityEditor.Handles.DrawWireArc(p2, p2Rotation * Vector3.up, p2Rotation * Vector3.left, 180f, radius);
+
+                UnityEditor.Handles.DrawLine(p1 + p1Rotation * Vector3.left * radius, p2 + p2Rotation * Vector3.right * radius);
+                UnityEditor.Handles.DrawLine(p1 + p1Rotation * Vector3.right * radius, p2 + p2Rotation * Vector3.left * radius);
+            }
+        }
+
+        #endregion
     }
 }

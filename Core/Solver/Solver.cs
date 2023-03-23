@@ -5,6 +5,8 @@ namespace Rehcub
     [System.Serializable]
     public abstract class Solver
     {
+        /*[HideInInspector]
+        [SerializeField] */
         protected Chain _chain;
 
         public Solver(Chain chain)
@@ -29,19 +31,54 @@ namespace Rehcub
             return true;
         }
 
+        /// <summary>
+        /// Aligns the first bone of the chain to the given Axis.
+        /// </summary>
+        /// <param name="bindPose">Bindpose of the Armature</param>
+        /// <param name="parentTransform">Parent transform of the first bone</param>
+        /// <param name="axis">Axis to match</param>
+        /// <returns>Rotation of the first bone to match the given axis (in model space)</returns>
         protected Quaternion AimBone(BindPose bindPose, BoneTransform parentTransform, Axis axis)
         {
             BoneTransform bindLocal = bindPose.GetLocalTransform(_chain.First());
             BoneTransform childTransform = parentTransform + bindLocal;
 
-            Quaternion rotation = childTransform.rotation;
+            Quaternion q = childTransform.rotation;
 
-            Vector3 direction = rotation * _chain.alternativeForward;
-            rotation = Quaternion.FromToRotation(direction, axis.forward) * rotation;
+            Vector3 direction = q * _chain.alternativeForward;
+            q = Quaternion.FromToRotation(direction, axis.forward) * q;
 
-            direction = rotation * _chain.alternativeUp;
-            rotation = Quaternion.FromToRotation(direction, axis.up) * rotation;
-            return rotation;
+            direction = q * _chain.alternativeUp;
+            //float twist = Vector3.SignedAngle(direction, axis.up, axis.forward);
+            //q = Quaternion.AngleAxis(twist, axis.forward) * q;
+
+            q = Quaternion.FromToRotation(direction, axis.up) * q;
+            return q;
+        }
+
+        /// <summary>
+        /// Aligns the first bone of the chain to the given Axis.
+        /// </summary>
+        /// <param name="bindPose">Bindpose of the Armature</param>
+        /// <param name="parentTransform">Parent transform of the first bone</param>
+        /// <param name="targetAxis">Axis to match</param>
+        /// <returns>Rotation of the first bone to match the given axis (in model space)</returns>
+        protected Quaternion AimBone(BindPose bindPose, Bone bone, BoneTransform parentTransform, Axis targetAxis)
+        {
+            BoneTransform bindLocal = bindPose.GetLocalTransform(bone);
+            BoneTransform childTransform = parentTransform + bindLocal;
+
+            Quaternion q = childTransform.rotation;
+
+            Vector3 direction = q * bone.axis.forward;
+            q = Quaternion.FromToRotation(direction, targetAxis.forward) * q;
+
+            direction = q * bone.axis.up;
+            //float twist = Vector3.SignedAngle(direction, axis.up, axis.forward);
+            //q = Quaternion.AngleAxis(twist, axis.forward) * q;
+
+            q = Quaternion.FromToRotation(direction, targetAxis.up) * q;
+            return q;
         }
 
         protected float LawCosSSS(float aLen, float bLen, float cLen)
@@ -58,19 +95,12 @@ namespace Rehcub
             if (_chain.length > length)
                 return false;
 
+            Quaternion aimRotation = AimBone(bindPose, parentTransform, axis);
+
             for (int i = 0; i < _chain.count - 1; i++)
             {
-                Bone poseBone = pose[_chain[i].boneName];
-
-                Quaternion rotation = parentTransform.rotation;
-                if (i == 0)
-                    rotation = AimBone(bindPose, parentTransform, axis);
-
-                //TODO: Get Rotation in which the bone forward vectors point in the same direction!
-                rotation = Quaternion.Inverse(parentTransform.rotation) * rotation;
-
-                pose.SetBoneLocal(poseBone.boneName, rotation);
-                parentTransform = pose.GetModelTransform(_chain[i]);
+                //TODO: this assumes that every bone in the chain has the same axis
+                pose.SetBoneModel(_chain[i].boneName, aimRotation);
             }
 
             //TODO: Save this in the armature or the chain!
@@ -98,33 +128,6 @@ namespace Rehcub
 
                 pose.SetBoneLocal(bone.boneName, position);
             }
-        }
-
-        protected Axis GetAlternativeAxis(BindPose bindPose, BoneTransform parentTransform)
-        {
-            BoneTransform bindLocal = bindPose.GetLocalTransform(_chain.First());
-            BoneTransform childTransform = parentTransform + bindLocal;
-
-            Quaternion q = childTransform.rotation;
-
-            Vector3 forward = q * _chain.alternativeForward;
-            Vector3 up = q * _chain.alternativeUp;
-
-            return new Axis(forward, up);
-        }
-
-        protected Axis GetAlternativeAxis(BindPose bindPose, BoneTransform parentTransform, Vector3 direction)
-        {
-            BoneTransform bindLocal = bindPose.GetLocalTransform(_chain.First());
-            BoneTransform childTransform = parentTransform + bindLocal;
-
-            Quaternion q = childTransform.rotation;
-
-            Vector3 forward = q * _chain.alternativeForward;
-            q = Quaternion.FromToRotation(forward, direction) * q;
-            Vector3 up = q * _chain.alternativeUp;
-
-            return new Axis(forward, up);
         }
 
         protected Axis GetAxis(IKChain ikChain) => new Axis(ikChain.direction, ikChain.jointDirection);

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace Rehcub
 {
@@ -9,14 +10,16 @@ namespace Rehcub
         public string boneName;
         [ReadOnly]
         public string parentName;
+        [ReadOnly]
+        public List<string> childNames;
         public BoneTransform model;
         public BoneTransform local;
-        [ReadOnly]
         public float length = 0.1f;
 
         public SourceSide side;
         public SourceBone source;
 
+        public Axis axis => new Axis(alternativeForward, alternativeUp);
         public Vector3 alternativeForward = Vector3.forward;
         public Vector3 alternativeUp = Vector3.up;
 
@@ -24,6 +27,7 @@ namespace Rehcub
         {
             boneName = transform.gameObject.name;
             parentName = transform.parent.gameObject.name;
+            childNames = new List<string>();
             model = new BoneTransform(transform);
             local = new BoneTransform(transform.localPosition, transform.localRotation);
 
@@ -31,16 +35,18 @@ namespace Rehcub
                 return;
 
             //ComputeForwardAxis(transform.GetChild(0));
-            alternativeForward = transform.InverseTransformDirection((transform.GetChild(0).position - transform.position).normalized);
+            /*alternativeForward = transform.InverseTransformDirection((transform.GetChild(0).position - transform.position).normalized);
             Axis axis = new Axis(alternativeForward, Vector3.forward);
             alternativeUp = axis.up;
-            ComputeLength(transform.GetChild(0));
+            ComputeLength(transform.GetChild(0));*/
         }
 
         public Bone(Bone bone)
         {
             boneName = bone.boneName;
-            parentName = bone.parentName;
+            parentName = bone.parentName; 
+            childNames = new List<string>();
+            childNames.AddRange(bone.childNames);
             model = bone.model;
             local = bone.local;
 
@@ -59,6 +65,19 @@ namespace Rehcub
             local = new BoneTransform(transform.localPosition, transform.localRotation);
         }
 
+        public void UpdateLocal(Transform parent)
+        {
+            Vector3 position = parent.InverseTransformPoint(model.position);
+            Quaternion rotation = Quaternion.Inverse(parent.rotation) * model.rotation;
+            local = new BoneTransform(position, rotation);
+        }
+        public void UpdateLocal(BoneTransform parent)
+        {
+            Vector3 position = parent.InverseTransformPoint(model.position);
+            Quaternion rotation = Quaternion.Inverse(parent.rotation) * model.rotation;
+            local = new BoneTransform(position, rotation);
+        }
+
         public void ComputeForwardAxis(Bone child) => alternativeForward = (child.model.position - model.position).normalized;
 
         public void ComputeLength(Bone child) => length = Vector3.Distance(model.position, child.model.position);
@@ -67,38 +86,35 @@ namespace Rehcub
 
         public void ComputeLength(Transform child) => length = Vector3.Distance(model.position, child.position);
 
-        //public void Solve(Armature armature, IKBone ikBone) => Solve(armature, ikBone, alternativeForward, alternativeUp);
+        public void Solve(Armature armature, IKBone ikBone) => Solve(armature, armature.currentPose, ikBone);
 
-        public void Solve(Armature armature, IKBone ikBone)
+        public void Solve(Armature armature, Pose pose, IKBone ikBone)
         {
-            Vector3 forward = Vector3.forward;
-            Vector3 up = Vector3.up;
-
             BoneTransform bindModel = armature.bindPose.GetModelTransform(boneName);
 
-            // Compute our Quat Inverse Direction, using the Defined Look&Twist Direction
-            Quaternion inverseBind = Quaternion.Inverse(bindModel.rotation);
-            Vector3 alternativeForward = inverseBind * forward;
-            Vector3 alternativeUp = inverseBind * up;
+            Axis axis = new Axis(alternativeForward, alternativeUp);
+            Axis globalAxis = Axis.Rotate(axis, bindModel.rotation);
 
-            Solve(armature, ikBone, alternativeForward, alternativeUp);
+            Quaternion sourceDifference = Quaternion.FromToRotation(ikBone.sourceAxis.forward, globalAxis.forward);
+
+            axis = Axis.Rotate(new Axis(ikBone.direction, ikBone.twist), sourceDifference);
+            Solve(armature.bindPose, pose, axis);
         }
 
-        private void Solve(Armature armature, IKBone ikBone, Vector3 alternativeForward, Vector3 alternativeUp)
+        public void Solve(BindPose bindPose, Pose pose, Axis target)
         {
-            BoneTransform bindLocal = armature.bindPose.GetLocalTransform(boneName);
-            BoneTransform parentTransform = armature.currentPose.GetParentModelTransform(this);
-            BoneTransform childTransform = parentTransform + bindLocal;
+            Axis axis = new Axis(alternativeForward, alternativeUp);
+            BoneTransform childTransform = bindPose.GetModelTransform(this);
 
-            Vector3 forward = childTransform.rotation * alternativeForward;
-            Quaternion rot = Quaternion.FromToRotation(forward, ikBone.direction) * childTransform.rotation;
+            Vector3 forward = childTransform.rotation * axis.forward;
 
-            Vector3 up = rot * alternativeUp;
-            rot = Quaternion.FromToRotation(up, ikBone.twist) * rot;
+            Quaternion rotation = Quaternion.FromToRotation(forward, target.forward) * childTransform.rotation;
 
-            rot = Quaternion.Inverse(parentTransform.rotation) * rot;
+            Vector3 up = rotation * axis.up;
+            rotation = Quaternion.FromToRotation(up, target.up) * rotation;
 
-            armature.currentPose.SetBoneLocal(boneName, rot);
+            rotation.Normalize();
+            pose.SetBoneModel(boneName, rotation);
         }
     }
 }
