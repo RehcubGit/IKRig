@@ -36,9 +36,9 @@ namespace Rehcub
         /// </summary>
         /// <param name="bindPose">Bindpose of the Armature</param>
         /// <param name="parentTransform">Parent transform of the first bone</param>
-        /// <param name="axis">Axis to match</param>
+        /// <param name="targetAxis">Axis to match</param>
         /// <returns>Rotation of the first bone to match the given axis (in model space)</returns>
-        protected Quaternion AimBone(BindPose bindPose, BoneTransform parentTransform, Axis axis)
+        protected Quaternion AimBone(BindPose bindPose, BoneTransform parentTransform, Axis targetAxis)
         {
             BoneTransform bindLocal = bindPose.GetLocalTransform(_chain.First());
             BoneTransform childTransform = parentTransform + bindLocal;
@@ -46,39 +46,42 @@ namespace Rehcub
             Quaternion q = childTransform.rotation;
 
             Vector3 direction = q * _chain.alternativeForward;
-            q = Quaternion.FromToRotation(direction, axis.forward) * q;
+            q = Quaternion.FromToRotation(direction, targetAxis.forward) * q;
 
             direction = q * _chain.alternativeUp;
-            //float twist = Vector3.SignedAngle(direction, axis.up, axis.forward);
-            //q = Quaternion.AngleAxis(twist, axis.forward) * q;
+            float twist = Vector3.SignedAngle(direction, targetAxis.up, targetAxis.forward);
+            q = Quaternion.AngleAxis(twist, targetAxis.forward) * q;
 
-            q = Quaternion.FromToRotation(direction, axis.up) * q;
             return q;
         }
 
         /// <summary>
-        /// Aligns the first bone of the chain to the given Axis.
+        /// Aligns the bone to the parent. (this is nessesary if the Bind pose is not a perfect T-Pose)
         /// </summary>
         /// <param name="bindPose">Bindpose of the Armature</param>
-        /// <param name="parentTransform">Parent transform of the first bone</param>
-        /// <param name="targetAxis">Axis to match</param>
-        /// <returns>Rotation of the first bone to match the given axis (in model space)</returns>
-        protected Quaternion AimBone(BindPose bindPose, Bone bone, BoneTransform parentTransform, Axis targetAxis)
+        /// <param name="bone">Bone to align</param>
+        /// <param name="parentTransform">Parent transform of the bone</param>
+        /// <returns>The Quaternion in model space</returns>
+        protected Quaternion AlignToParent(BindPose bindPose, Bone bone, BoneTransform parentTransform)
         {
-            BoneTransform bindLocal = bindPose.GetLocalTransform(bone);
-            BoneTransform childTransform = parentTransform + bindLocal;
+            BoneTransform bindParent = bindPose.GetParentModelTransform(bone);
+            BoneTransform bindModel = bindPose.GetModelTransform(bone);
 
-            Quaternion q = childTransform.rotation;
+            Axis parentAxis = bindPose.GetAxis(bone.parentName);
+            parentAxis.Rotate(bindParent.rotation);
 
-            Vector3 direction = q * bone.axis.forward;
-            q = Quaternion.FromToRotation(direction, targetAxis.forward) * q;
+            Axis boneAxis = bindPose.GetAxis(bone.boneName);
 
-            direction = q * bone.axis.up;
-            //float twist = Vector3.SignedAngle(direction, axis.up, axis.forward);
-            //q = Quaternion.AngleAxis(twist, axis.forward) * q;
+            Quaternion rot = bindModel.rotation;
+            rot = Quaternion.FromToRotation(bindModel.rotation * boneAxis.forward, parentAxis.forward) * rot;
+            
+            float twist = Vector3.SignedAngle(rot * boneAxis.up, parentAxis.up, parentAxis.forward);
+            rot = Quaternion.AngleAxis(twist, parentAxis.forward) * rot;
 
-            q = Quaternion.FromToRotation(direction, targetAxis.up) * q;
-            return q;
+            rot = Quaternion.Inverse(bindParent.rotation) * rot;
+            rot = parentTransform.rotation * rot;
+
+            return rot;
         }
 
         protected float LawCosSSS(float aLen, float bLen, float cLen)

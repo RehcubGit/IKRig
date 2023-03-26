@@ -30,6 +30,7 @@ namespace Rehcub
 
             _chain = _rig.Armature.GetChains(_targetChain, _targetSide)[0];
             _rig.onPreApplyPose += Apply;
+            _rigTransform = _rig.transform;
         }
 
         private void OnDisable()
@@ -42,6 +43,7 @@ namespace Rehcub
             _chain = _rig.Armature.GetChains(_targetChain, _targetSide)[0];
             ResetToPose();
             _rig.onPreApplyPose += Apply;
+            _rigTransform = _rig.transform;
         }
 
         private void Start()
@@ -76,9 +78,6 @@ namespace Rehcub
 
         public void Apply()
         {
-            if (_blend <= 0)
-                return;
-
             IKChain originalChain = GetOriginalChain();
             IKChain targetChain = GetTargetChain();
 
@@ -94,25 +93,34 @@ namespace Rehcub
 
             _chain.Last().Solve(_rig.Armature.bindPose, _rig.Armature.currentPose, axis);
 
-            HandControl handControl = GetComponent<HandControl>();
-            if (handControl == null)
+            IEndEffector endEffector = GetComponent<IEndEffector>();
+            if (endEffector == null)
                 return;
-            handControl.Apply();
+            endEffector.Apply();
         }
 
         private IKChain GetOriginalChain()
         {
+            BoneTransform rootTransform = new BoneTransform(_rigTransform);
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
 
-            BoneTransform target = _rig.Armature.currentPose.GetModelTransform(_chain.Last());
-            Vector3 poleTarget = _rig.Armature.currentPose.GetModelTransform(_chain[1]).position;
+            BoneTransform targetTransform = _rig.Armature.currentPose.GetModelTransform(_chain.Last());
+            Axis endAxis = GetAxis();
+            endAxis.Rotate(targetTransform.rotation);
 
-            Vector3 jointDirection = poleTarget - start.position;
+            IEndEffector endEffector = GetComponent<IEndEffector>();
+            if (endEffector != null)
+            {
+                targetTransform = endEffector.AqustTarget(rootTransform.TransformPoint(start.position), rootTransform + targetTransform);
+                targetTransform = rootTransform - targetTransform;
+            }
+
+            Axis axis = new Axis(_chain.alternativeForward, _chain.alternativeUp);
+            Vector3 jointDirection = start.TransformDirection(axis.up);
             jointDirection.Normalize();
 
-            Axis axis = GetAxis();
-            IKBone ikBone = new IKBone(target.rotation * axis.forward, target.rotation * axis.up);
-            IKChain ikChain = new IKChain(start.position, target.position, jointDirection, _chain.length, ikBone);
+            IKBone ikBone = new IKBone(endAxis.forward, endAxis.up);
+            IKChain ikChain = new IKChain(start.position, targetTransform.position, jointDirection, _chain.length, ikBone);
             return ikChain;
         }
 
@@ -120,23 +128,26 @@ namespace Rehcub
         {
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
 
-            //Vector3 startPosition = _rigTransform.TransformPoint(start.position);
             Vector3 startPosition = start.position;
-            Vector3 targetPosition = _transform.position;
-            Quaternion targetRotation = _transform.rotation;
-            Vector3 poleTarget = _transform.TransformPoint(_hintPosition);
 
-            targetPosition = _rigTransform.InverseTransformPoint(targetPosition);
-            targetRotation = Quaternion.Inverse(_rigTransform.rotation) * targetRotation;
-            poleTarget = _rigTransform.InverseTransformPoint(poleTarget);
+            BoneTransform rootTransform = new BoneTransform(_rigTransform);
+            BoneTransform targetTransform = new BoneTransform(_transform);
+            Vector3 poleTarget = rootTransform.rotation * _hintPosition + _transform.position;
 
-            BoneTransform targetTransform = new BoneTransform(targetPosition, targetRotation);
+            IEndEffector endEffector = GetComponent<IEndEffector>();
+            if (endEffector != null)
+                targetTransform = endEffector.AqustTarget(rootTransform.TransformPoint(startPosition), targetTransform);
 
+            targetTransform = rootTransform - targetTransform;
+            poleTarget = rootTransform.InverseTransformPoint(poleTarget);
+
+            Vector3 direction = targetTransform.position - startPosition;
             Vector3 jointDirection = poleTarget - startPosition;
-            jointDirection.Normalize();
+
+            Axis axis = new Axis(direction, jointDirection);
 
             IKBone ikBone = new IKBone(targetTransform.forward, targetTransform.up);
-            IKChain ikChain = new IKChain(startPosition, targetTransform.position, jointDirection, _chain.length, ikBone);
+            IKChain ikChain = new IKChain(direction, axis.up, _chain.length, ikBone);
             return ikChain;
         }
 
@@ -185,11 +196,10 @@ namespace Rehcub
             Gizmos.color = new Color(1f, 0f, 0f, 0.4f);
             Gizmos.DrawSphere(targetPosition, 0.04f);
 
-            Vector3 poleTarget = _transform.TransformPoint(_hintPosition);
+            Vector3 poleTarget = _rig.transform.rotation * _hintPosition + _transform.position;
 
             Gizmos.color = new Color(1f, 1f, 0f, 0.4f);
             Gizmos.DrawSphere(poleTarget, 0.02f);
-
         }
     }
 }

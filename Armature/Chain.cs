@@ -13,6 +13,7 @@ namespace Rehcub
         public SourceSide side;
         public SourceChain source;
 
+        public Axis axis => new Axis(alternativeForward, alternativeUp);
         [Tooltip("The direction in local space which points from the first bone to the second bone")]
         public Vector3 alternativeForward = Vector3.forward;
         [Tooltip("The direction in local space in which the chain will bend (pole target)")]

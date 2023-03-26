@@ -143,7 +143,6 @@ namespace Rehcub
             if (_showAnimationDebug)
             {
                 IKEditorDebug.DrawPose(_rig.Armature, _rig.Armature.currentPose);
-                IKEditorDebug.DrawBone(_rig.Armature.currentPose, _rig.Armature.GetChains(SourceChain.ARM, SourceSide.LEFT)[0].Last(), animationData.animation.GetFrame(_currentKeyframe).leftArm.endEffector);
             }
 
             if (_editAnimation == false)

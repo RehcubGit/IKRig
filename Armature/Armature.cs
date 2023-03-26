@@ -73,9 +73,16 @@ namespace Rehcub
         public Pose CreatePose() 
         {
             Pose pose = new Pose();
-            foreach (Transform bone in _transforms.Values)
+            foreach (Transform transform in _transforms.Values)
             {
-                pose.AddBone(new Bone(bone));
+                Bone bone = new Bone(transform);
+                bone.childNames.AddRange(GetChildNames(transform.name));
+                Axis axis = bindPose.GetAxis(bone);
+                bone.alternativeForward = axis.forward;
+                bone.alternativeUp = axis.up;
+                bone.length = bindPose.GetLength(bone);
+
+                pose.AddBone(bone);
             }
             return pose;
         }
@@ -94,12 +101,9 @@ namespace Rehcub
 
         public void ApplyPose(Pose pose)
         {
-            currentPose = pose;
             foreach (Bone bone in pose.GetBones())
             {
-                BoneTransform model = pose.CalculateParentModelTransform(bone) + bone.local;
-                bone.model = model;
-
+                BoneTransform model = pose.GetModelTransform(bone);
                 model.position.Scale(scale);
                 BoneTransform world = pose.ModelToWorld(model);
                 _transforms[bone.boneName].SetPositionAndRotation(world.position, world.rotation);
@@ -108,18 +112,55 @@ namespace Rehcub
 
         public Transform GetTransform(string boneName) => _transforms[boneName];
 
+        public Bone[] GetChildren(string boneName) => GetChildren(GetBone(boneName));
+
         public Bone[] GetChildren(Bone bone)
         {
-            Transform transform = _transforms[bone.boneName];
+            int childCount = bone.childNames.Count;
 
-            Bone[] children = new Bone[transform.childCount];
+            Bone[] children = new Bone[childCount];
 
-            for (int i = 0; i < transform.childCount; i++)
+            for (int i = 0; i < childCount; i++)
             {
-                children[i] = currentPose[transform.GetChild(i).name];
+                children[i] = currentPose[bone.childNames[i]];
             }
 
             return children;
+        }
+
+        public string[] GetChildNames(string name)
+        {
+            Transform transform = GetTransform(name);
+
+            List<string> children = new List<string>();
+
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                string child = transform.GetChild(i).name;
+                if (_transforms.TryGetValue(child, out _))
+                    children.Add(child);
+            }
+
+            return children.ToArray();
+        }
+
+        public bool TryGetChildren(Bone bone, out Bone[] children)
+        {
+            int childCount = bone.childNames.Count;
+            if (childCount == 0)
+            {
+                children = null;
+                return false;
+            }
+
+            children = new Bone[childCount];
+
+            for (int i = 0; i < childCount; i++)
+            {
+                children[i] = currentPose[bone.childNames[i]];
+            }
+
+            return true;
         }
 
         public Chain[] GetAllChains() => _chains.ToArray();
@@ -148,6 +189,16 @@ namespace Rehcub
             }
 
             return matchingBones.ToArray();
+        }
+
+        public Bone GetBone(string boneName)
+        {
+            foreach (Bone bone in currentPose.GetBones())
+            {
+                if (bone.boneName.Equals(boneName))
+                    return bone;
+            }
+            return null;
         }
 
         public bool HasParent(Bone bone)

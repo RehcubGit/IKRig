@@ -3,7 +3,7 @@
 namespace Rehcub 
 {
     [ExecuteInEditMode]
-    public class HandControl : MonoBehaviour
+    public class HandControl : MonoBehaviour , IEndEffector
     {
         [SerializeField] private IKRig _rig;
         [SerializeField] private SourceSide _targetSide;
@@ -39,21 +39,28 @@ namespace Rehcub
 
             _transform = transform;
 
-            _index = _rig.Armature.GetChains(SourceChain.INDEX, _targetSide)[0];
-            _index.solver = _rig.Armature.GetChains(SourceChain.INDEX, _targetSide)[0].solver;
-            _middle = _rig.Armature.GetChains(SourceChain.MIDDLE, _targetSide)[0];
-            _ring = _rig.Armature.GetChains(SourceChain.RING, _targetSide)[0];
-            _pinky = _rig.Armature.GetChains(SourceChain.PINKY, _targetSide)[0];
-            _thumb = _rig.Armature.GetChains(SourceChain.THUMB, _targetSide)[0];
+            _index = GetChain(SourceChain.INDEX);
+            _middle = GetChain(SourceChain.MIDDLE);
+            _ring = GetChain(SourceChain.RING);
+            _pinky = GetChain(SourceChain.PINKY);
+            _thumb = GetChain(SourceChain.THUMB);
         }
 
         public void Apply()
         {
+            if (enabled == false)
+                return;
+
             ApplyFinger(_index, GetIKChain(_index, _indexTarget));
             ApplyFinger(_middle, GetIKChain(_middle, _middleTarget));
             ApplyFinger(_ring, GetIKChain(_ring, _ringTarget));
             ApplyFinger(_pinky, GetIKChain(_pinky, _pinkyTarget));
             ApplyFinger(_thumb, GetIKChain(_thumb, _thumbTarget));
+        }
+
+        public BoneTransform AqustTarget(Vector3 start, BoneTransform target)
+        {
+            return target;
         }
 
         private IKChain GetIKChain(Chain chain, BoneTransform target)
@@ -78,27 +85,21 @@ namespace Rehcub
             return new IKChain(direction, jointDirection, chain.length);
         }
 
-        private void ApplyFinger(Chain chain) => ApplyFinger(chain, 1f);
-        private void ApplyFinger(Chain chain, float percent) => ApplyFinger(chain, null, percent);
-        private void ApplyFinger(Chain chain, IKChain ikChain, float percent = 1f)
+        private void ApplyFinger(Chain chain, IKChain ikChain)
         {
-            if (chain.solver is PercentSolver solver)
-                solver.Percent = percent;
+            if (chain == null)
+                return;
 
             chain.Solve(_rig.Armature, ikChain);
         }
 
-        private void Reset()
+        private Chain GetChain(SourceChain sourceChain)
         {
-            _transform = transform;
+            Chain[] chains = _rig.Armature.GetChains(sourceChain, _targetSide);
+            if (chains.Length == 0)
+                return null;
 
-            _index = _rig.Armature.GetChains(SourceChain.INDEX, _targetSide)[0];
-            _middle = _rig.Armature.GetChains(SourceChain.MIDDLE, _targetSide)[0];
-            _ring = _rig.Armature.GetChains(SourceChain.RING, _targetSide)[0];
-            _pinky = _rig.Armature.GetChains(SourceChain.PINKY, _targetSide)[0];
-            _thumb = _rig.Armature.GetChains(SourceChain.THUMB, _targetSide)[0];
-
-            ResetFingers();
+            return chains.First();
         }
 
         [ContextMenu("Reset Fingers")]
@@ -113,6 +114,9 @@ namespace Rehcub
 
         private void ResetFinger(Chain chain, ref BoneTransform target)
         {
+            if (chain == null)
+                return;
+
             BoneTransform handBind = _rig.Armature.bindPose.GetParentModelTransform(chain.First());
             BoneTransform hand = _rig.Armature.currentPose.GetParentModelTransform(chain.First());
             BoneTransform targetBind = _rig.Armature.bindPose.GetModelTransform(chain.Last());

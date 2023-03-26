@@ -107,7 +107,6 @@ namespace Rehcub
             BoneTransform childTransform = bindPose.GetModelTransform(this);
 
             Vector3 forward = childTransform.rotation * axis.forward;
-
             Quaternion rotation = Quaternion.FromToRotation(forward, target.forward) * childTransform.rotation;
 
             Vector3 up = rotation * axis.up;

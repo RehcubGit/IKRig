@@ -13,6 +13,7 @@ namespace Rehcub
         [SerializeField] private bool _copyRotation;
 
         [SerializeField] private Vector3 _offset;
+        [SerializeField] private Vector3 _rotationOffset;
 
 
         private Transform _transform;
@@ -27,16 +28,27 @@ namespace Rehcub
         {
         }
 
+        private void LateUpdate()
+        {
+            ApplyTransform();
+        }
+
         public void ApplyTransform()
         {
             Vector3 ownerPosition = _transform.position;
             Vector3 targetPosition = _target.position;
 
-            targetPosition.x = _x ? targetPosition.x + _offset.x : ownerPosition.x;
-            targetPosition.y = _y ? targetPosition.y + _offset.y : ownerPosition.y;
-            targetPosition.z = _z ? targetPosition.z + _offset.z : ownerPosition.z;
+            Vector3 offset = _target.rotation * _offset;
 
-            Quaternion targetRotation = _copyRotation ? _target.rotation : _transform.rotation;
+            targetPosition.x = _x ? targetPosition.x + offset.x : ownerPosition.x;
+            targetPosition.y = _y ? targetPosition.y + offset.y : ownerPosition.y;
+            targetPosition.z = _z ? targetPosition.z + offset.z : ownerPosition.z;
+
+            Quaternion targetRotation = _transform.rotation;
+            if (_copyRotation)
+            {
+                targetRotation = _target.rotation * Quaternion.Euler(_rotationOffset);
+            }
 
 
             _transform.SetPositionAndRotation(targetPosition, targetRotation);

@@ -19,27 +19,18 @@ namespace Rehcub
             float aLen = poseA.length;
             float bLen = poseB.length;
             float cLen = GetLength(ikChain);
-            float rad;
 
             Axis axis = GetAxis(ikChain);
 
+            float rad = LawCosSSS(aLen, cLen, bLen);
             Quaternion rot = AimBone(bindPose, parentTransform, axis);
-            rad = LawCosSSS(aLen, cLen, bLen);
             rot = Quaternion.AngleAxis(-rad * Mathf.Rad2Deg, axis.left) * rot;
             pose.SetBoneModel(poseA.boneName, rot);
 
-            Vector3 a = bindPose.GetModelTransform(_chain[1]).position - bindPose.GetModelTransform(_chain[0]).position;
-            Vector3 b = bindPose.GetModelTransform(_chain[2]).position - bindPose.GetModelTransform(_chain[1]).position;
-            Quaternion localRot = Quaternion.FromToRotation(a.normalized, b.normalized);
-
-            if (bindPose.GetLocalTransform(_chain[1]).rotation != Quaternion.identity)
-                localRot = bindPose.GetLocalTransform(_chain[1]).rotation;
 
             rad = Mathf.PI - LawCosSSS(aLen, bLen, cLen);
-            rot = poseA.model.rotation * bindPose.GetLocalTransform(_chain[1]).rotation;
+            rot = AlignToParent(bindPose, poseB, pose.GetModelTransform(poseA));
             rot = Quaternion.AngleAxis(rad * Mathf.Rad2Deg, axis.left) * rot;
-            //FIX for non perfect tpose
-            //rot *= Quaternion.Inverse(localRot);
             pose.SetBoneModel(poseB.boneName, rot);
 
 

@@ -10,8 +10,11 @@ namespace Rehcub
         public Quaternion rotation;
 
         public Vector3 forward { get => TransformDirection(Vector3.forward); }
+        public Vector3 back { get => TransformDirection(Vector3.back); }
         public Vector3 up { get => TransformDirection(Vector3.up); }
+        public Vector3 down { get => TransformDirection(Vector3.down); }
         public Vector3 right { get => TransformDirection(Vector3.right); }
+        public Vector3 left { get => TransformDirection(Vector3.left); }
 
         public static BoneTransform zero => new BoneTransform(Vector3.zero, Quaternion.identity);
 

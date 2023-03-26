@@ -52,19 +52,13 @@ namespace Rehcub
                 BoneTransform model = pose.GetModelTransform(bone.boneName);
                 Axis axis = new Axis(bone.alternativeForward, bone.alternativeUp);
 
-                DrawWireBone(model, axis, bone.length);
+                BoneTransform world = armature.currentPose.rootTransform + model;
+                DrawWireBone(world, axis, bone.length);
                 Handles.color = Color.green;
 
-                Vector3 position = pose.ModelToWorld(bone.model.position);
+                Vector3 position = pose.ModelToWorld(model.position);
                 
                 Handles.SphereHandleCap(1, position, Quaternion.identity, _handleSizeSmall, EventType.Repaint);
-
-                Bone parentBone = pose[bone.parentName];
-                if (parentBone == null)
-                    continue;
-
-                Vector3 parentPosition = pose.ModelToWorld(parentBone.model.position);
-                Handles.DrawLine(parentPosition, position);
             }
         }
 

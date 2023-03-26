@@ -11,36 +11,37 @@ namespace Rehcub
         public override void Solve(BindPose bindPose, Pose pose, IKChain ikChain, BoneTransform parentTransform)
 		{
 			int count = _chain.count;
-			Axis axis = GetAxis(ikChain);
+			Axis targetAxis = GetAxis(ikChain);
 
-			for (int i = 1; i <= count; i++)
+			Axis chainAxis = _chain.axis;
+			chainAxis.Rotate(bindPose.GetModelTransform(_chain.First()).rotation);
+			Axis lastAxis = _chain.Last().axis;
+			lastAxis.Rotate(bindPose.GetModelTransform(_chain.Last()).rotation);
+
+			float flipLastUp = Mathf.Sign(Vector3.Dot(chainAxis.up, lastAxis.up));
+
+			Axis endEffectorAxis = new Axis(ikChain.endEffector.direction, flipLastUp * ikChain.endEffector.twist);
+
+			for (int i = 0; i < count - 1; i++)
 			{
-				int index = i - 1;
-				BoneTransform bindLocal = bindPose.GetLocalTransform(_chain[index]);
-				BoneTransform bindModel = bindPose.GetModelTransform(_chain[index]);
 
-				float t = i / (float)count;
+				float t = (i + 1) / (float)(count + 1);
 
-				Vector3 look = Vector3.Slerp(axis.up, -ikChain.endEffector.direction, t);
-				Vector3 twist = Vector3.Slerp(axis.forward, ikChain.endEffector.twist, t);
+				Vector3 forward = Vector3.Slerp(targetAxis.forward, endEffectorAxis.forward, t);
+				Vector3 up = Vector3.Slerp(targetAxis.up, endEffectorAxis.up, t);
 
-				Quaternion inverseBind = Quaternion.Inverse(bindModel.rotation);
-
-				Vector3 alternativeLook = inverseBind * _chain.alternativeUp;
-				Vector3 alternativeTwist = inverseBind * _chain.alternativeForward;
-
+				BoneTransform bindLocal = bindPose.GetLocalTransform(_chain[i]);
 				BoneTransform childTransform = parentTransform + bindLocal;
 
-				Vector3 currentLook = childTransform.rotation * alternativeLook;
-				Quaternion rotation = Quaternion.FromToRotation(currentLook, look) * childTransform.rotation;
+				Vector3 currentforward = childTransform.rotation * _chain.axis.forward;
+				Quaternion rotation = Quaternion.FromToRotation(currentforward, forward) * childTransform.rotation;
 
-				Vector3 currentTwist = rotation * alternativeTwist;
-				rotation = Quaternion.FromToRotation(currentTwist, twist) * rotation;
+				Vector3 currentTwist = rotation * _chain.axis.up;
+				float twist = Vector3.SignedAngle(currentTwist, up, forward);
+				rotation = Quaternion.AngleAxis(twist, forward) * rotation;
 
-				rotation = Quaternion.Inverse(parentTransform.rotation) * rotation;
-
-				pose.SetBoneLocal(_chain[index].boneName, rotation);
-				parentTransform += new BoneTransform(bindLocal.position, rotation);
+				pose.SetBoneModel(_chain[i].boneName, rotation);
+				parentTransform = pose.GetModelTransform(_chain[i].boneName);
 			}
 		}
     }

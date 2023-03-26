@@ -21,19 +21,31 @@ namespace Rehcub
 		{
 			lengthScale = direction.magnitude / chainLength;
 
-			axis = new Axis(direction.normalized, jointDirection);
+			axis = new Axis(direction, jointDirection);
 			this.direction = axis.forward;
 			this.jointDirection = axis.up;
 
 			endEffector = new IKBone();
 		}
+
+        public IKChain(Vector3 direction, Vector3 jointDirection, float chainLength, IKBone endEffector)
+		{
+			lengthScale = direction.magnitude / chainLength;
+
+			axis = new Axis(direction, jointDirection);
+			this.direction = axis.forward;
+			this.jointDirection = axis.up;
+
+			this.endEffector = endEffector;
+		}
+
         public IKChain(Vector3 position, Vector3 target, Vector3 jointDirection, float chainLength)
 		{
 			Vector3 direction = target - position;
 
 			lengthScale = direction.magnitude / chainLength;
 
-			axis = new Axis(direction.normalized, jointDirection);
+			axis = new Axis(direction, jointDirection);
 			this.direction = axis.forward;
 			this.jointDirection = axis.up;
 
@@ -46,42 +58,18 @@ namespace Rehcub
 
 			lengthScale = direction.magnitude / chainLength;
 
-			axis = new Axis(direction.normalized, jointDirection);
+			axis = new Axis(direction, jointDirection);
 			this.direction = axis.forward;
 			this.jointDirection = axis.up;
 
 			this.endEffector = endEffector;
 		}
 
-		public Vector3 GetTargetPosition(Vector3 start, float chainLength)
-        {
-			return start + direction * (chainLength * lengthScale);
-        }
-
-		public Vector3 GetTargetPosition(Chain chain, BoneTransform hip)
-        {
-			//TODO: What am i doing? This only works if the chains first bone is the parent of the hip transform
-			Vector3 start = hip.TransformPoint(chain.First().local.position);
-			return start + direction * (chain.length * lengthScale);
-        }
-
-		public void SetTarget(Vector3 target, Vector3 start, float chainLength)
-        {
-			Vector3 ikDirection = target - start;
-			float ikLength = ikDirection.magnitude;
-			ikDirection.Normalize();
-
-			Vector3 leftDir = Vector3.Cross(jointDirection, ikDirection).normalized;
-
-			lengthScale = ikLength / chainLength;
-			direction = ikDirection;
-			jointDirection = Vector3.Cross(ikDirection, leftDir).normalized;
-		}
-
 		public IKChain Copy()
 		{
 			IKChain copy = new IKChain
 			{
+				axis = axis,
 				lengthScale = lengthScale,
 				direction = direction,
 				jointDirection = jointDirection,

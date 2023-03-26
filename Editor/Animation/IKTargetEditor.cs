@@ -18,21 +18,24 @@ namespace Rehcub
         private void DuringSceneGUI(SceneView sceneView)
         {
             IKTargetObject targetObject = target as IKTargetObject;
+            IKRig rig = serializedObject.FindProperty("_rig").objectReferenceValue as IKRig;
             SerializedProperty hintProperty = serializedObject.FindProperty("_hintPosition");
 
             serializedObject.Update();
             EditorGUI.BeginChangeCheck();
 
             Vector3 hintPosition = hintProperty.vector3Value;
-            hintPosition = targetObject.transform.TransformPoint(hintPosition);
+            hintPosition = rig.transform.rotation * hintPosition;
+            hintPosition += targetObject.transform.position;
 
-            Vector3 hint = Handles.PositionHandle(hintPosition, Quaternion.identity);
+            hintPosition = Handles.PositionHandle(hintPosition, Quaternion.identity);
 
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(targetObject, "Set Hint Destinations");
-                hint = targetObject.transform.InverseTransformPoint(hint);
-                hintProperty.vector3Value = hint;
+                hintPosition -= targetObject.transform.position;
+                hintPosition = Quaternion.Inverse(rig.transform.rotation) * hintPosition;
+                hintProperty.vector3Value = hintPosition;
                 serializedObject.ApplyModifiedProperties();
             }
         }
