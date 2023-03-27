@@ -32,7 +32,7 @@ namespace Rehcub
         [HideInInspector]
         [SerializeField] private Chain _thumb;
 
-        private void OnEnable()
+        private void OnValidate()
         {
             if (_rig == null)
                 return;
@@ -44,6 +44,8 @@ namespace Rehcub
             _ring = GetChain(SourceChain.RING);
             _pinky = GetChain(SourceChain.PINKY);
             _thumb = GetChain(SourceChain.THUMB);
+
+            ResetFingers();
         }
 
         public void Apply()
@@ -65,9 +67,11 @@ namespace Rehcub
 
         private IKChain GetIKChain(Chain chain, BoneTransform target)
         {
+            if (chain == null)
+                return null;
+
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(chain.First());
             BoneTransform hand = _rig.Armature.currentPose.GetParentModelTransform(chain.First());
-            //BoneTransform transform = new BoneTransform(_transform);
 
             Axis axis = _rig.Armature.bindPose.GetAxis(chain.First().parentName);
             axis = Axis.Rotate(axis, hand.rotation);
@@ -77,7 +81,6 @@ namespace Rehcub
 
             target.position = transform.TransformPoint(target.position);
             target.rotation = transform.rotation * target.rotation;
-            //target = transform + target;
 
             Vector3 direction = target.position - start.position;
             Vector3 jointDirection = target.TransformPoint(Vector3.up) - start.position;

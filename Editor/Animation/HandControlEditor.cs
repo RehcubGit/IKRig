@@ -42,6 +42,10 @@ namespace Rehcub
 
         private void DrawFingerSelector(string targetName)
         {
+            SerializedProperty chainProperty = serializedObject.FindProperty(targetName);
+            if (chainProperty == null || chainProperty.GetValue() == null)
+                return;
+
             SerializedProperty targetProperty = serializedObject.FindProperty(targetName + "Target");
             if (targetProperty == selectedProperty)
                 return;
