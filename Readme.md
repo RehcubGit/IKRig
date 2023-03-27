@@ -20,8 +20,8 @@ Then you add your model to the scene and add the component ArmatureBuilder.
 * Select the root bone (which is preferably your hip bone) of your armature and hit "Add All Bones" this adds the selected root bone and all its children to the armature.
 * Select (in the configurator) multiple bones and hit "Add Chain" to group them into a chain.
 Make sure you select them in desending order and that the bones are in a parent child relation.
-* Go to the "Chain" tab and check if they are asaind the right way.
-Here you also probably want to ajust the forward and up directions of the chain.
+* Go to the "Chain" tab and check if they are assigned the right way.
+Here you sould adjust the forward and up directions of the chain.
 
   * The forward direction is the direction which points from the first bone to the second bone in local space of the first bone.<br>
   So when the y axis of the first bone points to the second bone then the forward direction is (0, 1, 0).
@@ -34,7 +34,6 @@ Here you also probably want to ajust the forward and up directions of the chain.
   * LookAndTwist: Slerps between the target/pole dirction and the direction of the end effector
   * Limb: A Two bone solver (perfect for Human Legs and Arms)
   * Zig-Zag: A Three bone solver
-  * FABRIK: A multi bone iterative solver
   * Spring: A multi bone procedural solver
   
 
@@ -81,6 +80,7 @@ Future Plans
 ---
 
 - [ ] Implement extra single pass IK Solvers
+- [ ] Implement FABRIK
 - [ ] Implement CCD
 - [ ] Complete FullBody IK Prototype
 - [ ] Bone Constraints
@@ -93,3 +93,4 @@ under the MIT Licesne.
 
 External Libarys
 * SerializableDictionary -> https://github.com/neuecc/SerializableDictionary
+* SerializedPropertyExtensions -> https://github.com/MechWarrior99/Bewildered-Core
