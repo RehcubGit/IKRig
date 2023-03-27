@@ -78,24 +78,28 @@ namespace Rehcub
 
         public void Apply()
         {
-            BoneTransform rootTransform = new BoneTransform(_rigTransform);
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
             BoneTransform original = GetOriginalChain(out Vector3 poleOriginal);
             BoneTransform target = GetTargetChain(out Vector3 pole);
 
             BoneTransform targetTransform = BoneTransform.Slerp(original, target, _blend);
 
-
-            IEndEffector endEffector = GetComponent<IEndEffector>();
-            if (endEffector != null)
-            {
-                targetTransform = endEffector.AdjustTarget(rootTransform.TransformPoint(start.position), rootTransform + targetTransform);
-                targetTransform = rootTransform - targetTransform;
-            }
+            IEndEffector endEffector = AdjustTarget(start, ref targetTransform);
 
             Vector3 poleTarget = Vector3.Slerp(poleOriginal, pole, _blend);
 
-            Vector3 direction = targetTransform.position - start.position;
+            if (_transform.IsChildOf(_rigTransform) == false)
+                start.position.Scale(_rigTransform.localScale);
+            
+
+            Vector3 direction = targetTransform.position - start.position; 
+            
+            if (_transform.IsChildOf(_rigTransform) == false)
+            {
+                Vector3 reverseScaleRoot = new Vector3(1f / _rigTransform.localScale.x, 1f / _rigTransform.localScale.y, 1f / _rigTransform.localScale.z);
+                direction.Scale(reverseScaleRoot);
+            }
+
             Vector3 jointDirection = poleTarget - start.position;
 
             Axis axis = new Axis(direction, jointDirection);
@@ -113,10 +117,30 @@ namespace Rehcub
 
             _chain.Last().Solve(_rig.Armature.bindPose, _rig.Armature.currentPose, axis);
 
-            //IEndEffector endEffector = GetComponent<IEndEffector>();
             if (endEffector == null)
                 return;
             endEffector.Apply();
+        }
+
+        private IEndEffector AdjustTarget(BoneTransform start, ref BoneTransform targetTransform)
+        {
+            IEndEffector endEffector = GetComponent<IEndEffector>();
+            if (endEffector == null)
+            {
+                return endEffector;
+            }
+
+            BoneTransform rootTransform = new BoneTransform(_rigTransform);
+            if (_transform.IsChildOf(_rigTransform))
+            {
+                Vector3 reverseScaleRoot = new Vector3(1f / _rigTransform.localScale.x, 1f / _rigTransform.localScale.y, 1f / _rigTransform.localScale.z);
+                rootTransform.position.Scale(reverseScaleRoot);
+            }
+
+            targetTransform = endEffector.AdjustTarget(rootTransform.TransformPoint(start.position), rootTransform + targetTransform);
+            targetTransform = rootTransform - targetTransform;
+
+            return endEffector;
         }
 
         private BoneTransform GetOriginalChain(out Vector3 jointDirection)
@@ -137,18 +161,21 @@ namespace Rehcub
 
         private BoneTransform GetTargetChain(out Vector3 jointDirection)
         {
-            BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
-
-            Vector3 startPosition = start.position;
-
             BoneTransform rootTransform = new BoneTransform(_rigTransform);
             BoneTransform targetTransform = new BoneTransform(_transform);
-            Vector3 poleTarget = rootTransform.rotation * _hintPosition + _transform.position;
+
+            jointDirection = _hintPosition;
+            if (_transform.IsChildOf(_rigTransform))
+            {
+                Vector3 reverseScaleRoot = new Vector3(1f / _rigTransform.localScale.x, 1f / _rigTransform.localScale.y, 1f / _rigTransform.localScale.z);
+                rootTransform.position.Scale(reverseScaleRoot);
+                targetTransform.position.Scale(reverseScaleRoot);
+                jointDirection = rootTransform.rotation * _hintPosition;
+            }
+            jointDirection += targetTransform.position;
 
             targetTransform = rootTransform - targetTransform;
-            poleTarget = rootTransform.InverseTransformPoint(poleTarget);
-
-            jointDirection = poleTarget - startPosition;
+            jointDirection = rootTransform.InverseTransformPoint(jointDirection);
 
             return targetTransform;
         }
@@ -198,7 +225,11 @@ namespace Rehcub
             Gizmos.color = new Color(1f, 0f, 0f, 0.4f);
             Gizmos.DrawSphere(targetPosition, 0.04f);
 
-            Vector3 poleTarget = _rig.transform.rotation * _hintPosition + _transform.position;
+            Vector3 poleTarget = _hintPosition;
+            if (_transform.IsChildOf(_rigTransform))
+                poleTarget = _rig.transform.rotation * _hintPosition;
+
+            poleTarget += _transform.position;
 
             Gizmos.color = new Color(1f, 1f, 0f, 0.4f);
             Gizmos.DrawSphere(poleTarget, 0.02f);

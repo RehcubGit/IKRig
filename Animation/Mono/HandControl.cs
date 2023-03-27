@@ -44,8 +44,6 @@ namespace Rehcub
             _ring = GetChain(SourceChain.RING);
             _pinky = GetChain(SourceChain.PINKY);
             _thumb = GetChain(SourceChain.THUMB);
-
-            ResetFingers();
         }
 
         public void Apply()
