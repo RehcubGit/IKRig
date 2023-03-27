@@ -4,6 +4,7 @@ using UnityEditor;
 namespace Rehcub
 {
     [CustomEditor(typeof(IKTargetObject))]
+    [CanEditMultipleObjects]
     public class IKTargetEditor : Editor
     {
         private void OnEnable()
@@ -17,6 +18,8 @@ namespace Rehcub
 
         private void DuringSceneGUI(SceneView sceneView)
         {
+            if (targets.Length > 1)
+                return;
             IKTargetObject targetObject = target as IKTargetObject;
             IKRig rig = serializedObject.FindProperty("_rig").objectReferenceValue as IKRig;
             SerializedProperty hintProperty = serializedObject.FindProperty("_hintPosition");
@@ -42,6 +45,13 @@ namespace Rehcub
 
         public override void OnInspectorGUI()
         {
+            if (targets.Length > 1)
+            {
+                SerializedProperty blendProperty = serializedObject.FindProperty("_blend");
+                EditorGUILayout.PropertyField(blendProperty);
+                serializedObject.ApplyModifiedProperties();
+                return;
+            }
             base.OnInspectorGUI();
 
         }

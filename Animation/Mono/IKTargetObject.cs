@@ -78,53 +78,64 @@ namespace Rehcub
 
         public void Apply()
         {
-            IKChain originalChain = GetOriginalChain();
-            IKChain targetChain = GetTargetChain();
+            BoneTransform rootTransform = new BoneTransform(_rigTransform);
+            BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
+            BoneTransform original = GetOriginalChain(out Vector3 poleOriginal);
+            BoneTransform target = GetTargetChain(out Vector3 pole);
 
-            targetChain = IKChain.Slerp(originalChain, targetChain, _blend);
-            _chain.Solve(_rig.Armature, targetChain);
+            BoneTransform targetTransform = BoneTransform.Slerp(original, target, _blend);
+
+
+            IEndEffector endEffector = GetComponent<IEndEffector>();
+            if (endEffector != null)
+            {
+                targetTransform = endEffector.AdjustTarget(rootTransform.TransformPoint(start.position), rootTransform + targetTransform);
+                targetTransform = rootTransform - targetTransform;
+            }
+
+            Vector3 poleTarget = Vector3.Slerp(poleOriginal, pole, _blend);
+
+            Vector3 direction = targetTransform.position - start.position;
+            Vector3 jointDirection = poleTarget - start.position;
+
+            Axis axis = new Axis(direction, jointDirection);
+
+            IKBone ikBone = new IKBone(targetTransform.forward, targetTransform.up);
+            IKChain ikChain = new IKChain(direction, axis.up, _chain.length, ikBone);
+            _chain.Solve(_rig.Armature, ikChain);
 
             if (_ignoreRotation)
                 return;
 
-            targetChain.endEffector.sourceAxis = Axis.FromRotation(_rig.Armature.bindPose.GetModelTransform(_chain.Last()).rotation);
+            ikChain.endEffector.sourceAxis = Axis.FromRotation(_rig.Armature.bindPose.GetModelTransform(_chain.Last()).rotation);
 
-            Axis axis = new Axis(targetChain.endEffector.direction, targetChain.endEffector.twist);
+            axis = new Axis(ikChain.endEffector.direction, ikChain.endEffector.twist);
 
             _chain.Last().Solve(_rig.Armature.bindPose, _rig.Armature.currentPose, axis);
 
-            IEndEffector endEffector = GetComponent<IEndEffector>();
+            //IEndEffector endEffector = GetComponent<IEndEffector>();
             if (endEffector == null)
                 return;
             endEffector.Apply();
         }
 
-        private IKChain GetOriginalChain()
+        private BoneTransform GetOriginalChain(out Vector3 jointDirection)
         {
-            BoneTransform rootTransform = new BoneTransform(_rigTransform);
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
 
             BoneTransform targetTransform = _rig.Armature.currentPose.GetModelTransform(_chain.Last());
             Axis endAxis = GetAxis();
             endAxis.Rotate(targetTransform.rotation);
 
-            IEndEffector endEffector = GetComponent<IEndEffector>();
-            if (endEffector != null)
-            {
-                targetTransform = endEffector.AqustTarget(rootTransform.TransformPoint(start.position), rootTransform + targetTransform);
-                targetTransform = rootTransform - targetTransform;
-            }
+            targetTransform.rotation = endAxis.GetRotation();
 
-            Axis axis = new Axis(_chain.alternativeForward, _chain.alternativeUp);
-            Vector3 jointDirection = start.TransformDirection(axis.up);
+            jointDirection = start.TransformDirection(_chain.alternativeUp);
             jointDirection.Normalize();
 
-            IKBone ikBone = new IKBone(endAxis.forward, endAxis.up);
-            IKChain ikChain = new IKChain(start.position, targetTransform.position, jointDirection, _chain.length, ikBone);
-            return ikChain;
+            return targetTransform;
         }
 
-        private IKChain GetTargetChain()
+        private BoneTransform GetTargetChain(out Vector3 jointDirection)
         {
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
 
@@ -134,21 +145,12 @@ namespace Rehcub
             BoneTransform targetTransform = new BoneTransform(_transform);
             Vector3 poleTarget = rootTransform.rotation * _hintPosition + _transform.position;
 
-            IEndEffector endEffector = GetComponent<IEndEffector>();
-            if (endEffector != null)
-                targetTransform = endEffector.AqustTarget(rootTransform.TransformPoint(startPosition), targetTransform);
-
             targetTransform = rootTransform - targetTransform;
             poleTarget = rootTransform.InverseTransformPoint(poleTarget);
 
-            Vector3 direction = targetTransform.position - startPosition;
-            Vector3 jointDirection = poleTarget - startPosition;
+            jointDirection = poleTarget - startPosition;
 
-            Axis axis = new Axis(direction, jointDirection);
-
-            IKBone ikBone = new IKBone(targetTransform.forward, targetTransform.up);
-            IKChain ikChain = new IKChain(direction, axis.up, _chain.length, ikBone);
-            return ikChain;
+            return targetTransform;
         }
 
         [ContextMenu("Reset to Bind Pose")]

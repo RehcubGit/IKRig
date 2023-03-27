@@ -36,19 +36,18 @@ namespace Rehcub
             Bone toe = GetChildBone(foot.boneName);
             Bone toeEnd = GetChildBone(toe.boneName);
 
-            //CalculateFoot(_rig.Armature.currentPose, foot, toe);
             CalculateToes(_rig.Armature.currentPose, toe, toeEnd);
         }
 
-        public BoneTransform AqustTarget(Vector3 start, BoneTransform target)
+        public BoneTransform AdjustTarget(Vector3 start, BoneTransform target)
         {
             Bone foot = _chain.Last();
             BoneTransform bind = _rig.Armature.bindPose.GetModelTransform(foot);
             float footGroundHeight = bind.position.y;
 
             float footLength = _rig.Armature.bindPose.GetLength(foot);
-            Axis axis = _rig.Armature.bindPose.GetAxis(foot);
-            axis.Rotate(bind.rotation);
+            Axis footAxis = _rig.Armature.bindPose.GetAxis(foot);
+            footAxis.Rotate(bind.rotation);
 
             Vector3 direction = target.position - start;
             float distance = direction.magnitude + footGroundHeight;
@@ -66,13 +65,7 @@ namespace Rehcub
 
             //Get the Vec3 from the hit point to the chain target and check if it is underneath the surface
             if (Vector3.Dot(start + direction * distance - hit.point, hit.normal) < 0f)
-            {
                 target.position = pointOnRay;
-
-                Quaternion q = Quaternion.FromToRotation(Vector3.up, hit.normal);
-                target.rotation = q * axis.GetRotation();
-                return target;
-            }
 
             Vector3 forward = target.forward;
             Vector3 toePosition = target.position + forward * footLength;
@@ -82,14 +75,14 @@ namespace Rehcub
             if (Vector3.Dot(toePosition - hit.point, hit.normal) > 0f)
                 return target;
 
-            float a = Vector3.Project(target.position - hit.point, hit.normal).magnitude;
-
-            //float a = target.position.y - groundHeight;
-            float c = footLength;
-            float b = Mathf.Sqrt(c * c - a * a);
+            float projectedFootHeight = Vector3.Project(target.position - hit.point, hit.normal).magnitude;
+            float b = Mathf.Sqrt(footLength * footLength - projectedFootHeight * projectedFootHeight);
 
             Vector3 toeLocal = toePosition - target.position;
-            Vector3 newToeLocal = Quaternion.FromToRotation(Vector3.up, hit.normal) * new Vector3(toeLocal.x, -a, b);
+
+            float angleToeForward = Vector3.SignedAngle(Vector3.forward, toeLocal.SetY(0).normalized, Vector3.up);
+            Vector3 newToeLocal = Quaternion.AngleAxis(angleToeForward, Vector3.up) * new Vector3(0f, -projectedFootHeight, b);
+            newToeLocal = Quaternion.FromToRotation(Vector3.up, hit.normal) * newToeLocal;
 
             Quaternion rot = Quaternion.FromToRotation(toeLocal.normalized, newToeLocal.normalized);
             target.rotation = rot * target.rotation;
@@ -102,6 +95,7 @@ namespace Rehcub
                 return;
 
             BoneTransform toeModel = pose.GetModelTransform(toe);
+            BoneTransform toeWorld = pose.GetWorldTransform(toe);
             float length = pose.GetLength(toe.boneName);
 
             Vector3 target = toeModel.TransformPoint(toe.axis.forward * length);
@@ -110,13 +104,16 @@ namespace Rehcub
                 target = pose.GetModelTransform(toeEnd).position;
             }
 
+            target = pose.ModelToWorld(target);
+
             Physics.Raycast(target + Vector3.up, Vector3.down, out RaycastHit hit, 1f);
             float groundHeight = hit.point.y;
 
             if (target.y >= groundHeight)
                 return;
 
-            Axis axis = new Axis(hit.point - toeModel.position, toeModel.rotation * toe.axis.up);
+            Axis axis = new Axis(hit.point - toeWorld.position, hit.normal);
+            axis.Rotate(Quaternion.Inverse(pose.rootTransform.rotation));
             toe.Solve(_rig.Armature.bindPose, _rig.Armature.currentPose, axis);
         }
 

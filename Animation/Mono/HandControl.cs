@@ -58,7 +58,7 @@ namespace Rehcub
             ApplyFinger(_thumb, GetIKChain(_thumb, _thumbTarget));
         }
 
-        public BoneTransform AqustTarget(Vector3 start, BoneTransform target)
+        public BoneTransform AdjustTarget(Vector3 start, BoneTransform target)
         {
             return target;
         }
