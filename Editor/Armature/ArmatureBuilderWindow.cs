@@ -256,10 +256,14 @@ namespace Rehcub
                     up = upLast;
 
                 rot = Quaternion.FromToRotation(rot * axis.up, up) * rot;
+
+                Undo.RecordObject(transform, $"Foce TPose {chain.side} {chain.source}");
                 transform.rotation = rot;
 
                 UpdateBone(bone);
             }
+
+            //TODO: Update the children ob the chains last bone!
 
             serializedObject.Update();
         }
@@ -370,23 +374,61 @@ namespace Rehcub
 
                     if (_showBones)
                     {
-                        if (GUILayout.Button("Recalculate Transforms"))
+                        BoneControls();
+                    }
+                    if (_showChains)
+                    {
+                        if (GUILayout.Button("Calculate Length"))
                         {
-                            Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
-                            Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
-                            bone.ComputeForwardAxis(child);
-                            //serializedObject.Update();
+                            Chain chain = selectedProperty.GetValue<Chain>();
+                            float length = Vector3.Distance(chain.First().model.position, chain.Last().model.position);
+                            chain.length = length;
                         }
-                        
-                        if (GUILayout.Button("Recalculate Axis"))
+                        if (GUILayout.Button("Force TPose"))
                         {
-                            Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
-                            Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
-                            bone.ComputeForwardAxis(child);
-                            //serializedObject.Update();
+                            Chain chain = selectedProperty.GetValue<Chain>();
+                            ForceTPose(chain);
                         }
+
                     }
                 }
+            }
+        }
+
+        private void BoneControls()
+        {
+            if (GUILayout.Button("Recalculate Transforms"))
+            {
+                Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
+                Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
+                bone.ComputeForwardAxis(child);
+            }
+
+            if (GUILayout.Button("Recalculate Axis"))
+            {
+                Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
+                Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
+                bone.ComputeForwardAxis(child);
+            }
+
+            if (GUILayout.Button("Recalculate Length"))
+            {
+                Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
+                Bone child = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("childNames").GetArrayElementAtIndex(0).stringValue));
+                bone.ComputeLength(child);
+            }
+
+            if (GUILayout.Button("Shift Childs"))
+            {
+                Bone bone = _builder.bones.Find((b) => b.boneName.Equals(selectedProperty.FindPropertyRelative("boneName").stringValue));
+
+                string first = bone.childNames.First();
+
+                for (int i = 1; i < bone.childNames.Count; i++)
+                {
+                    bone.childNames[i - 1] = bone.childNames[i];
+                }
+                bone.childNames[bone.childNames.Count - 1] = first;
             }
         }
 

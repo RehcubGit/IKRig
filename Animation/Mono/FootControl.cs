@@ -131,9 +131,6 @@ namespace Rehcub
                 enabled = false;
                 return null;
             }
-
-            Debug.Log(chains.Length);
-            Debug.Log(chains.First().count);
             return chains.First();
         }
 

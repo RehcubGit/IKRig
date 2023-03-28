@@ -32,6 +32,17 @@ namespace Rehcub
         [HideInInspector]
         [SerializeField] private Chain _thumb;
 
+        [HideInInspector]
+        [SerializeField] private bool _hasIndex;
+        [HideInInspector]
+        [SerializeField] private bool _hasMiddle;
+        [HideInInspector]
+        [SerializeField] private bool _hasRing;
+        [HideInInspector]
+        [SerializeField] private bool _hasPinky;
+        [HideInInspector]
+        [SerializeField] private bool _hasThumb;
+
         private void OnValidate()
         {
             if (_rig == null)
@@ -40,10 +51,19 @@ namespace Rehcub
             _transform = transform;
 
             _index = GetChain(SourceChain.INDEX);
+            _hasIndex = _index != null;
+
             _middle = GetChain(SourceChain.MIDDLE);
+            _hasMiddle = _middle != null;
+
             _ring = GetChain(SourceChain.RING);
+            _hasRing = _ring != null;
+
             _pinky = GetChain(SourceChain.PINKY);
+            _hasPinky = _pinky != null;
+
             _thumb = GetChain(SourceChain.THUMB);
+            _hasThumb = _thumb != null;
         }
 
         public void Apply()
@@ -51,11 +71,20 @@ namespace Rehcub
             if (enabled == false)
                 return;
 
-            ApplyFinger(_index, GetIKChain(_index, _indexTarget));
-            ApplyFinger(_middle, GetIKChain(_middle, _middleTarget));
-            ApplyFinger(_ring, GetIKChain(_ring, _ringTarget));
-            ApplyFinger(_pinky, GetIKChain(_pinky, _pinkyTarget));
-            ApplyFinger(_thumb, GetIKChain(_thumb, _thumbTarget));
+            if(_hasIndex)
+                ApplyFinger(_index, GetIKChain(_index, _indexTarget));
+
+            if (_hasMiddle)
+                ApplyFinger(_middle, GetIKChain(_middle, _middleTarget));
+
+            if (_hasRing)
+                ApplyFinger(_ring, GetIKChain(_ring, _ringTarget));
+
+            if (_hasPinky)
+                ApplyFinger(_pinky, GetIKChain(_pinky, _pinkyTarget));
+
+            if (_hasThumb)
+                ApplyFinger(_thumb, GetIKChain(_thumb, _thumbTarget));
         }
 
         public BoneTransform AdjustTarget(Vector3 start, BoneTransform target)
@@ -106,11 +135,16 @@ namespace Rehcub
         [ContextMenu("Reset Fingers")]
         private void ResetFingers()
         {
-            ResetFinger(_index, ref _indexTarget);
-            ResetFinger(_middle, ref _middleTarget);
-            ResetFinger(_ring, ref _ringTarget);
-            ResetFinger(_pinky, ref _pinkyTarget);
-            ResetFinger(_thumb, ref _thumbTarget);
+            if (_hasIndex)
+                ResetFinger(_index, ref _indexTarget);
+            if (_hasMiddle)
+                ResetFinger(_middle, ref _middleTarget);
+            if (_hasRing)
+                ResetFinger(_ring, ref _ringTarget);
+            if (_hasPinky)
+                ResetFinger(_pinky, ref _pinkyTarget);
+            if (_hasThumb)
+                ResetFinger(_thumb, ref _thumbTarget);
         }
 
         private void ResetFinger(Chain chain, ref BoneTransform target)

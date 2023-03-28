@@ -90,7 +90,7 @@ namespace Rehcub
             local = new BoneTransform(position, rotation);
         }
 
-        public void ComputeForwardAxis(Bone child) => alternativeForward = (child.model.position - model.position).normalized;
+        public void ComputeForwardAxis(Bone child) => alternativeForward = model.InverseTransformDirection(child.model.position - model.position).normalized;
 
         public void ComputeLength(Bone child) => length = Vector3.Distance(model.position, child.model.position);
 

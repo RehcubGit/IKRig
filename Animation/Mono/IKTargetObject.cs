@@ -42,7 +42,7 @@ namespace Rehcub
         public void Init()
         {
             _chain = _rig.Armature.GetChains(_targetChain, _targetSide)[0];
-            ResetToPose();
+            ResetToBindPose();
             _rig.onPreApplyPose += Apply;
             _rigTransform = _rig.transform;
         }
@@ -54,12 +54,16 @@ namespace Rehcub
 
         public static IKTargetObject Create(IKRig rig, GameObject parent, SourceChain sourceChain, SourceSide side)
         {
+            Chain[] chains = rig.Armature.GetChains(sourceChain, side);
+            if (chains.Length <= 0)
+                return null;
+            Chain chain = chains.First();
+
             GameObject go = new GameObject($"{sourceChain} {side}");
             go.transform.SetParent(parent.transform);
             IKTargetObject target = go.AddComponent<IKTargetObject>();
 
 
-            Chain chain = rig.Armature.GetChains(sourceChain, side).First();
             Vector3 pole = chain.First().model.TransformPoint(chain.alternativeUp);
 
             target._rig = rig;

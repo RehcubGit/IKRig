@@ -31,22 +31,22 @@ namespace Rehcub
             serializedObject.Update();
 
 
-            DrawFingerSelector("_thumb");
-            DrawFingerSelector("_index");
-            DrawFingerSelector("_middle");
-            DrawFingerSelector("_ring");
-            DrawFingerSelector("_pinky");
+            DrawFingerSelector("Thumb");
+            DrawFingerSelector("Index");
+            DrawFingerSelector("Middle");
+            DrawFingerSelector("Ring");
+            DrawFingerSelector("Pinky");
 
             DrawFinderTarget(selectedProperty);
         }
 
         private void DrawFingerSelector(string targetName)
         {
-            SerializedProperty chainProperty = serializedObject.FindProperty(targetName);
-            if (chainProperty == null || chainProperty.GetValue() == null)
+            SerializedProperty hasChainProperty = serializedObject.FindProperty("_has" + targetName);
+            if (hasChainProperty.boolValue == false)
                 return;
 
-            SerializedProperty targetProperty = serializedObject.FindProperty(targetName + "Target");
+            SerializedProperty targetProperty = serializedObject.FindProperty("_" + targetName.ToLower() + "Target");
             if (targetProperty == selectedProperty)
                 return;
 
@@ -62,7 +62,7 @@ namespace Rehcub
             if (result == MyHandles.DragHandleResult.LMBPress)
             {
                 selectedProperty = targetProperty; 
-                selectedChainProperty = serializedObject.FindProperty(targetName);
+                selectedChainProperty = serializedObject.FindProperty("_" + targetName.ToLower());
                 Repaint();
             }
         }
@@ -126,10 +126,12 @@ namespace Rehcub
             {
                 SerializedProperty solverProperty = selectedChainProperty.FindPropertyRelative("solver");
                 SerializedProperty solverProperty2 = solverProperty.FindPropertyRelative("_limit");
-
-                solverProperty.isExpanded = true;
-                EditorGUILayout.PropertyField(solverProperty, true);
-                EditorGUILayout.PropertyField(solverProperty2, false);
+                if(solverProperty2 != null)
+                {
+                    solverProperty.isExpanded = true;
+                    EditorGUILayout.PropertyField(solverProperty, true);
+                    EditorGUILayout.PropertyField(solverProperty2, false);
+                }
             }
 
             serializedObject.ApplyModifiedProperties();
