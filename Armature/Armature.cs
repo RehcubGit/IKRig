@@ -103,9 +103,7 @@ namespace Rehcub
         {
             foreach (Bone bone in pose.GetBones())
             {
-                BoneTransform model = pose.GetModelTransform(bone);
-                model.position.Scale(scale);
-                BoneTransform world = pose.ModelToWorld(model);
+                BoneTransform world = pose.GetWorldTransform(bone);
                 _transforms[bone.boneName].SetPositionAndRotation(world.position, world.rotation);
             }
         }

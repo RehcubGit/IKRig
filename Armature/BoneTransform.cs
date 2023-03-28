@@ -8,6 +8,7 @@ namespace Rehcub
     {
         public Vector3 position;
         public Quaternion rotation;
+        public Vector3 scale;
 
         public Vector3 forward { get => TransformDirection(Vector3.forward); }
         public Vector3 back { get => TransformDirection(Vector3.back); }
@@ -22,12 +23,21 @@ namespace Rehcub
         {
             position = transform.position;
             rotation = transform.rotation;
+            scale = transform.lossyScale;
         }
 
         public BoneTransform(Vector3 position, Quaternion rotation)
         {
             this.position = position;
             this.rotation = rotation;
+            scale = Vector3.one;
+        }
+
+        public BoneTransform(Vector3 position, Quaternion rotation, Vector3 scale)
+        {
+            this.position = position;
+            this.rotation = rotation;
+            this.scale = scale;
         }
 
         public void CopyToTransform(Transform transform)
@@ -50,7 +60,9 @@ namespace Rehcub
         /// <returns></returns>
         public Vector3 InverseTransformPoint(Vector3 point)
         {
+            point.Scale(new Vector3(1f / scale.x, 1f / scale.y, 1f / scale.z));
             Vector3 result = Quaternion.Inverse(rotation) * (point - position);
+            
             return result;
         }
 
@@ -61,7 +73,8 @@ namespace Rehcub
         /// <returns></returns>
         public Vector3 TransformPoint(Vector3 point)
         {
-            Vector3 result = position + (rotation * point);
+            Vector3 result = position + (rotation * point); 
+            result.Scale(scale);
             return result;
         }
 
@@ -135,6 +148,7 @@ namespace Rehcub
 
             Vector3 pos = Vector3.Lerp(from.position, to.position, t);
             Quaternion rot = Quaternion.Lerp(from.rotation, to.rotation, t);
+            //Vector3 scale = Vector3.Lerp(from.scale, to.scale, t);
 
             return new BoneTransform(pos, rot);
         }
@@ -147,13 +161,14 @@ namespace Rehcub
 
             Vector3 pos = Vector3.Slerp(from.position, to.position, t);
             Quaternion rot = Quaternion.Slerp(from.rotation, to.rotation, t);
+            //Vector3 scale = Vector3.Slerp(from.scale, to.scale, t);
 
             return new BoneTransform(pos, rot);
         }
 
         public override string ToString()
         {
-            return $"{position}\n{rotation}";
+            return $"{position}\n{rotation}\n{scale}";
         }
     }
 }

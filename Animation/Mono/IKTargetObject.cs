@@ -18,7 +18,8 @@ namespace Rehcub
         [SerializeField] private bool _ignoreRotation;
 
         private Transform _transform;
-        private Transform _rigTransform;
+        private Transform _rigTransform; 
+        private BoneTransform rootTransform;
 
         public Chain Chain { get => _chain; }
         private Chain _chain;
@@ -78,7 +79,10 @@ namespace Rehcub
 
         public void Apply()
         {
+            rootTransform = new BoneTransform(_rigTransform);
             BoneTransform start = _rig.Armature.currentPose.GetModelTransform(_chain.First());
+            start = rootTransform + start;
+
             BoneTransform original = GetOriginalChain(out Vector3 poleOriginal);
             BoneTransform target = GetTargetChain(out Vector3 pole);
 
@@ -88,22 +92,17 @@ namespace Rehcub
 
             Vector3 poleTarget = Vector3.Slerp(poleOriginal, pole, _blend);
 
-            if (_transform.IsChildOf(_rigTransform) == false)
-                start.position.Scale(_rigTransform.localScale);
-            
-
-            Vector3 direction = targetTransform.position - start.position; 
-            
-            if (_transform.IsChildOf(_rigTransform) == false)
-            {
-                Vector3 reverseScaleRoot = new Vector3(1f / _rigTransform.localScale.x, 1f / _rigTransform.localScale.y, 1f / _rigTransform.localScale.z);
-                direction.Scale(reverseScaleRoot);
-            }
+            Vector3 direction = targetTransform.position - start.position;
+            Vector3 reverseScaleRoot = new Vector3(1f / rootTransform.scale.x, 1f / rootTransform.scale.y, 1f / rootTransform.scale.z);
+            direction.Scale(reverseScaleRoot);
+            direction = rootTransform.InverseTransformDirection(direction);
 
             Vector3 jointDirection = poleTarget - start.position;
+            jointDirection = rootTransform.InverseTransformDirection(jointDirection);
 
             Axis axis = new Axis(direction, jointDirection);
 
+            targetTransform = rootTransform - targetTransform;
             IKBone ikBone = new IKBone(targetTransform.forward, targetTransform.up);
             IKChain ikChain = new IKChain(direction, axis.up, _chain.length, ikBone);
             _chain.Solve(_rig.Armature, ikChain);
@@ -130,15 +129,7 @@ namespace Rehcub
                 return endEffector;
             }
 
-            BoneTransform rootTransform = new BoneTransform(_rigTransform);
-            if (_transform.IsChildOf(_rigTransform))
-            {
-                Vector3 reverseScaleRoot = new Vector3(1f / _rigTransform.localScale.x, 1f / _rigTransform.localScale.y, 1f / _rigTransform.localScale.z);
-                rootTransform.position.Scale(reverseScaleRoot);
-            }
-
-            targetTransform = endEffector.AdjustTarget(rootTransform.TransformPoint(start.position), rootTransform + targetTransform);
-            targetTransform = rootTransform - targetTransform;
+            targetTransform = endEffector.AdjustTarget(start.position, targetTransform);
 
             return endEffector;
         }
@@ -156,27 +147,21 @@ namespace Rehcub
             jointDirection = start.TransformDirection(_chain.alternativeUp);
             jointDirection.Normalize();
 
+            targetTransform = rootTransform + targetTransform;
+            jointDirection = rootTransform.TransformPoint(jointDirection);
+
             return targetTransform;
         }
 
         private BoneTransform GetTargetChain(out Vector3 jointDirection)
         {
-            BoneTransform rootTransform = new BoneTransform(_rigTransform);
             BoneTransform targetTransform = new BoneTransform(_transform);
 
             jointDirection = _hintPosition;
             if (_transform.IsChildOf(_rigTransform))
-            {
-                Vector3 reverseScaleRoot = new Vector3(1f / _rigTransform.localScale.x, 1f / _rigTransform.localScale.y, 1f / _rigTransform.localScale.z);
-                rootTransform.position.Scale(reverseScaleRoot);
-                targetTransform.position.Scale(reverseScaleRoot);
                 jointDirection = rootTransform.rotation * _hintPosition;
-            }
+            
             jointDirection += targetTransform.position;
-
-            targetTransform = rootTransform - targetTransform;
-            jointDirection = rootTransform.InverseTransformPoint(jointDirection);
-
             return targetTransform;
         }
 
@@ -187,13 +172,13 @@ namespace Rehcub
 
             Vector3 position = footWorld.position;
             Axis axis = GetAxis();
-            Quaternion rotation = Quaternion.LookRotation(footWorld.rotation * axis.forward, footWorld.rotation * axis.up);
-            _transform.SetPositionAndRotation(position, rotation);
+            axis.Rotate(footWorld.rotation);
+            _transform.SetPositionAndRotation(position, axis.GetRotation());
 
             BoneTransform legWorld = _rig.Armature.bindPose.GetModelTransform(_chain.First());
 
-            _hintPosition = legWorld.TransformPoint(_chain.Last().alternativeUp);
-
+            _hintPosition = legWorld.TransformPoint(_chain.alternativeUp);
+            _hintPosition -= _transform.position;
         }
 
         [ContextMenu("Reset to Current Pose")]
@@ -203,11 +188,15 @@ namespace Rehcub
 
             Vector3 position = footWorld.position;
             Axis axis = GetAxis();
-            Quaternion rotation = Quaternion.LookRotation(footWorld.rotation * axis.forward, footWorld.rotation * axis.up);
-            _transform.SetPositionAndRotation(position, rotation);
+            axis.Rotate(footWorld.rotation);
+            _transform.SetPositionAndRotation(position, axis.GetRotation());
 
-            BoneTransform legWorld = _rig.Armature.bindPose.GetModelTransform(_chain.First());
-            _hintPosition = legWorld.TransformPoint(_chain.Last().alternativeUp);
+            BoneTransform legWorld = _rig.Armature.currentPose.GetWorldTransform(_chain.First());
+            _hintPosition = legWorld.TransformPoint(_chain.alternativeUp);
+            _hintPosition -= _transform.position;
+            if (_transform.IsChildOf(_rigTransform))
+                _hintPosition = Quaternion.Inverse(rootTransform.rotation) * _hintPosition;
+
         }
 
         private void OnValidate()

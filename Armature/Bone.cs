@@ -28,8 +28,14 @@ namespace Rehcub
             boneName = transform.gameObject.name;
             parentName = transform.parent.gameObject.name;
             childNames = new List<string>();
-            model = new BoneTransform(transform);
-            local = new BoneTransform(transform.localPosition, transform.localRotation);
+            model = new BoneTransform(transform)
+            {
+                scale = Vector3.one
+            };
+            local = new BoneTransform(transform.localPosition, transform.localRotation)
+            {
+                scale = Vector3.one
+            };
 
             if (transform.childCount <= 0)
                 return;
@@ -61,8 +67,14 @@ namespace Rehcub
 
         public void Update(Transform transform)
         {
-            model = new BoneTransform(transform);
-            local = new BoneTransform(transform.localPosition, transform.localRotation);
+            model = new BoneTransform(transform)
+            {
+                scale = Vector3.one
+            };
+            local = new BoneTransform(transform.localPosition, transform.localRotation)
+            {
+                scale = Vector3.one
+            };
         }
 
         public void UpdateLocal(Transform parent)

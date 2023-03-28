@@ -41,13 +41,13 @@ namespace Rehcub
 
         public BoneTransform AdjustTarget(Vector3 start, BoneTransform target)
         {
+            if (enabled == false)
+                return target;
             Bone foot = _chain.Last();
             BoneTransform bind = _rig.Armature.bindPose.GetModelTransform(foot);
-            float footGroundHeight = bind.position.y;
+            float footGroundHeight = bind.position.y * target.scale.y;
 
             float footLength = _rig.Armature.bindPose.GetLength(foot);
-            Axis footAxis = _rig.Armature.bindPose.GetAxis(foot);
-            footAxis.Rotate(bind.rotation);
 
             Vector3 direction = target.position - start;
             float distance = direction.magnitude + footGroundHeight;
@@ -67,8 +67,13 @@ namespace Rehcub
             if (Vector3.Dot(start + direction * distance - hit.point, hit.normal) < 0f)
                 target.position = pointOnRay;
 
-            Vector3 forward = target.forward;
-            Vector3 toePosition = target.position + forward * footLength;
+            Vector3 targetToToe = target.forward * footLength;
+            targetToToe.Scale(target.scale);
+            Vector3 toePosition = target.position + targetToToe;
+            footLength = targetToToe.magnitude;
+
+            Debug.DrawLine(target.position, start, Color.white, 1f / 30f);
+            Debug.DrawLine(target.position, toePosition, Color.white, 1f / 30f);
 
             Physics.Raycast(toePosition + Vector3.up, Vector3.down, out hit, 2f);
             
