@@ -3,6 +3,9 @@ IKRig
 [![Discord](https://discordapp.com/api/guilds/846757180828286976/widget.png?style=shield)](https://discord.gg/B9uceFXMpd)
 [![Patreon](https://img.shields.io/badge/Patreon-donate-red?style=flat-square&logo=youtube)](https://www.patreon.com/rehcub)
 
+<b>Retarget your animation to any type of armature.</b><br>
+![gif](https://media.giphy.com/media/PrwvR2FPKLPRl7r35W/giphy-downsized-large.gif)
+
 How to install
 ---
 
@@ -63,6 +66,7 @@ These work in addition to the ik animations.
 
 PoseAnimator
 ---
+WIP! But the rest works with Mecanim, so for now this is only for testing.
 
 To play an ikAnimation you just need to pass the "IKAnimationData" object to the PoseAnimator
 
