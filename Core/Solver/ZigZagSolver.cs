@@ -12,23 +12,12 @@ namespace Rehcub
         [SerializeField] private float _limit = 0.5f;
 
 
-        public ZigZagSolver(Chain chain) : base(chain)
-        {
-
-        }
+        public ZigZagSolver(Chain chain) : base(chain) {}
 
         public override void Solve(BindPose bindPose, Pose pose, IKChain ikChain, BoneTransform parentTransform)
         {
             Axis axis = GetAxis(ikChain);
             float length = GetLength(ikChain);
-
-            bool outOfReach = HandleOutOfReach(bindPose, pose, parentTransform, axis, length);
-            if (outOfReach)
-                return;
-
-            BoneTransform bindALocal = bindPose.GetLocalTransform(_chain[0]);
-            BoneTransform bindBLocal = bindPose.GetLocalTransform(_chain[1]);
-            BoneTransform bindCLocal = bindPose.GetLocalTransform(_chain[2]);
 
             Bone poseA = pose[_chain[0].boneName];
             Bone poseB = pose[_chain[1].boneName];
@@ -38,6 +27,12 @@ namespace Rehcub
             float r2 = poseB.length;
             float r3 = poseC.length;
             float r4 = length;
+
+            if (r1 + r2 + r3 < length * 0.999f)
+            {
+                HandleOutOfReach(bindPose, pose, parentTransform, axis, length);
+                return;
+            }
 
             Vector2 limits = GetLimits(r1, r2, r3, r4);
             float rad = Mathf.Lerp(limits.x, limits.y, _limit);
@@ -72,7 +67,6 @@ namespace Rehcub
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             // Bone A 
             Quaternion aimRotation = AimBone(bindPose, parentTransform, axis);
-
             Quaternion rot = Quaternion.AngleAxis(deg1, axis.left) * aimRotation;
             pose.SetBoneModel(poseA.boneName, rot);
             parentTransform = pose.GetModelTransform(poseA);

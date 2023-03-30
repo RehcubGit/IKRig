@@ -93,11 +93,8 @@ namespace Rehcub
 
         public bool IsOutOfReach(IKChain ikChain) => _chain.length < GetLength(ikChain);
 
-        protected bool HandleOutOfReach(BindPose bindPose, Pose pose, BoneTransform parentTransform, Axis axis, float length)
+        protected void HandleOutOfReach(BindPose bindPose, Pose pose, BoneTransform parentTransform, Axis axis, float length)
         {
-            if (_chain.length > length)
-                return false;
-
             Quaternion aimRotation = AimBone(bindPose, parentTransform, axis);
 
             for (int i = 0; i < _chain.count - 1; i++)
@@ -111,8 +108,6 @@ namespace Rehcub
 
             if (isStrechy)
                 StretchBones(bindPose, pose, parentTransform, axis, length);
-
-            return true;
         }
 
         private void StretchBones(BindPose bindPose, Pose pose, BoneTransform parentTransform, Axis axis, float length)

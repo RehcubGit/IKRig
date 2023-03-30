@@ -249,8 +249,8 @@ namespace Rehcub
 
                 Axis axis = bone.axis;
 
-                Quaternion rot = Quaternion.FromToRotation(parent.rotation * axis.forward, forward);
-                rot = parent.rotation * rot;
+                Quaternion rot = Quaternion.FromToRotation(transform.rotation * axis.forward, forward) * transform.rotation;
+                //rot = parent.rotation * rot;
 
                 if (i == chain.count - 1)
                     up = upLast;

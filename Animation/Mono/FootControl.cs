@@ -34,8 +34,10 @@ namespace Rehcub
 
             Bone foot = _chain.Last();
             Bone toe = GetChildBone(foot.boneName);
-            Bone toeEnd = GetChildBone(toe.boneName);
+            if (toe == null)
+                return;
 
+            Bone toeEnd = GetChildBone(toe.boneName);
             CalculateToes(_rig.Armature.currentPose, toe, toeEnd);
         }
 

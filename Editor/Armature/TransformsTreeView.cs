@@ -74,7 +74,6 @@ namespace Rehcub
 				{
 					if (IsExpanded(id))
 					{
-						Debug.Log($"{transform.name} is expanded");
 						AddChildrenRecursive(transform, item, rows);
 					}
 					else

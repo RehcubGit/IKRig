@@ -52,6 +52,7 @@ namespace Rehcub
 
             HandControl handControl = target as HandControl;
             BoneTransform handTransform = new BoneTransform(handControl.transform);
+            handTransform.scale = Vector3.one;
 
             SerializedProperty positionProp = targetProperty.FindPropertyRelative("position");
 
@@ -74,6 +75,7 @@ namespace Rehcub
 
             HandControl handControl = target as HandControl;
             BoneTransform handTransform = new BoneTransform(handControl.transform);
+            handTransform.scale = Vector3.one;
 
             SerializedProperty positionProp = targetProperty.FindPropertyRelative("position");
             SerializedProperty rotationProp = targetProperty.FindPropertyRelative("rotation");
