@@ -28,7 +28,7 @@ namespace Rehcub
             float r3 = poseC.length;
             float r4 = length;
 
-            if (r1 + r2 + r3 < length * 0.999f)
+            if (r1 + r2 + r3 < length)
             {
                 HandleOutOfReach(bindPose, pose, parentTransform, axis, length);
                 return;
@@ -52,6 +52,12 @@ namespace Rehcub
             float A2 = A * A;
             float B2 = B * B;
             float C2 = C * C;
+
+            if (A2 + B2 - C2 < 0)
+            {
+                HandleOutOfReach(bindPose, pose, parentTransform, axis, length);
+                return;
+            }
 
             float phi;
             if(_cross)
