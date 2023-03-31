@@ -5,8 +5,8 @@ namespace Rehcub
     [System.Serializable]
     public class IKPose
     {
-		public Vector3 rootMotion = Vector3.zero;
-		public Vector3 deltaRootMotion = Vector3.zero;
+		public BoneTransform rootMotion = BoneTransform.zero;
+		public BoneTransform deltaRootMotion = BoneTransform.zero;
         public IKHip hip;
 
         public IKChain spine;
@@ -133,28 +133,28 @@ namespace Rehcub
 			}
 		}
 
-		public Vector3 GetRootMotion(Armature armature, bool scaled = false)
+		public BoneTransform GetRootMotion(Armature armature, bool scaled = false)
         {
-			Vector3 unscaledMotion = rootMotion;
+			BoneTransform unscaledMotion = rootMotion;
 			if (scaled == false)
 				return unscaledMotion;
 
 			Bone bind = armature.GetBones(SourceBone.HIP)[0];
 			float heightScale = bind.model.position.y / hip.bindHeight;
-			Vector3 scaledMotion = unscaledMotion * heightScale;
-			return scaledMotion;
+			unscaledMotion.position *= heightScale;
+			return unscaledMotion;
 		}
 
-		public Vector3 GetDeltaRootMotion(Armature armature, bool scaled = false)
+		public BoneTransform GetDeltaRootMotion(Armature armature, bool scaled = false)
         {
-			Vector3 unscaledMotion = deltaRootMotion;
+			BoneTransform unscaledMotion = deltaRootMotion;
 			if (scaled == false)
 				return unscaledMotion;
 
 			Bone bind = armature.GetBones(SourceBone.HIP)[0];
 			float heightScale = bind.model.position.y / hip.bindHeight;
-			Vector3 scaledMotion = unscaledMotion * heightScale;
-			return scaledMotion;
+			unscaledMotion.position *= heightScale;
+			return unscaledMotion;
 		}
 
         public void ApplyPose(Armature armature) => ApplyPose(armature, armature.currentPose);
@@ -259,8 +259,8 @@ namespace Rehcub
 		{
 			IKPose newPose = new IKPose
 			{
-				rootMotion = Vector3.Lerp(from.rootMotion, to.rootMotion, t),
-				deltaRootMotion = Vector3.Lerp(from.deltaRootMotion, to.deltaRootMotion, t),
+				rootMotion = BoneTransform.Lerp(from.rootMotion, to.rootMotion, t),
+				deltaRootMotion = BoneTransform.Lerp(from.deltaRootMotion, to.deltaRootMotion, t),
 
 				hip = IKHip.Lerp(from.hip, to.hip, t),
 				spine = IKChain.Lerp(from.spine, to.spine, t),
@@ -281,8 +281,8 @@ namespace Rehcub
 		{
 			IKPose newPose = new IKPose
 			{
-				rootMotion = Vector3.Slerp(from.rootMotion, to.rootMotion, t),
-				deltaRootMotion = Vector3.Slerp(from.deltaRootMotion, to.deltaRootMotion, t),
+				rootMotion = BoneTransform.Slerp(from.rootMotion, to.rootMotion, t),
+				deltaRootMotion = BoneTransform.Slerp(from.deltaRootMotion, to.deltaRootMotion, t),
 
 				hip = IKHip.Slerp(from.hip, to.hip, t),
 				spine = IKChain.Slerp(from.spine, to.spine, t),

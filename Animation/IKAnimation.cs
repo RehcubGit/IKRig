@@ -9,10 +9,6 @@ namespace Rehcub
         public string name;
         public int FrameCount => _keyframes.Length;
         [SerializeField] private IKPose[] _keyframes;
-        public StrideData LeftStride { get => _leftStride; }
-        [SerializeField] private StrideData _leftStride;
-        public StrideData RightStride { get => _rightStride; }
-        private StrideData _rightStride;
         public bool HasRootMotion { get => _hasRootMotion; }
         private bool _hasRootMotion;
 
@@ -33,308 +29,144 @@ namespace Rehcub
         }
 
         public IKPose GetFrame(int frame) => _keyframes[frame % _keyframes.Length].Copy();
-/*
-        public void ExtraktStrideData2(Armature armature, bool addRootMotion = false)
-        {
-            List<StrideFrameData> leftStrideData = new List<StrideFrameData>();
-            List<StrideFrameData> rightStrideData = new List<StrideFrameData>();
 
-            for (int i = 0; i < _keyframes.Length; i++)
-            {
-                IKPose pose = _keyframes[i];
-                pose.ApplyHip(armature);
-                //BoneTransform hip = armature.bindPose[armature.hip.boneName].model;
-                BoneTransform hip = armature.currentPose[armature.hip.boneName].model;
-                //hip.position = new Vector3(0f, hip.position.y, 0f);
-                if(addRootMotion)
-                    hip.position += pose.GetRootMotion(armature);
-
-                Vector3 leftFootPosition = GetFootPosition(hip, armature.leftLeg, pose.leftLeg);
-                Vector3 rightFootPosition = GetFootPosition(hip, armature.rightLeg, pose.rightLeg);
-
-                StrideFrameData leftStrideFrame = new StrideFrameData(leftFootPosition, i);
-                StrideFrameData rightStrideFrame = new StrideFrameData(rightFootPosition, i);
-
-                leftStrideData.Add(leftStrideFrame);
-                rightStrideData.Add(rightStrideFrame);
-            }
-
-            _leftStride = new StrideData
-            {
-                frames = leftStrideData.ToArray()
-            };
-            _leftStride.CalculatePlantedAndLifted(armature.leftLeg.Last().model.position);
-            //_leftStride.CalculateStrideLength();
-            _leftStride.SetRootMotion(_keyframes[_keyframes.Length - 2].GetRootMotion(armature, true));
-            //_leftStride.Sort();
-            _rightStride = new StrideData
-            {
-                frames = rightStrideData.ToArray()
-            };
-
-        }*/
-
-        #region strideData need fix up
-        /*
-                public void ExtraktStrideData(Armature armature)
-                {
-                    List<StrideFrameData> leftStrideData = new List<StrideFrameData>();
-                    List<StrideFrameData> rightStrideData = new List<StrideFrameData>();
-
-                    bool leftFootGroundedLast = false;
-                    StrideFrameData leftPlanted = new StrideFrameData(Vector3.back, 0);
-                    StrideFrameData leftLifted = new StrideFrameData(Vector3.back, 0);
-                    bool rightFootPlantedLast = false;
-
-                    for (int i = 0; i < _keyframes.Length; i++)
-                    {
-                        IKPose pose = _keyframes[i];
-                        BoneTransform hip = pose.CalculateHip(armature);
-                        hip.position = new Vector3(0f, hip.position.y, 0f);
-
-                        Vector3 leftFootPosition = GetFootPosition(armature.leftLeg, pose.leftLeg, hip);
-                        bool leftFootGrounded = leftFootPosition.y <= (armature.leftLeg.Last().model.position.y + 0.01f);
-
-                        StrideFrameData strideData = new StrideFrameData(leftFootPosition, i);
-                        strideData.SetGrounded(leftFootGrounded);
-
-                        if (leftFootGrounded == false) 
-                            _hasRootMotion = true;
-
-                        bool leftFootPlanted = leftFootGrounded == true && leftFootGroundedLast == false;
-                        if (leftFootPlanted)
-                        {
-                            strideData.SetAsDestination();
-                            leftPlanted = strideData;
-                        }
-                        bool leftFootLifted = leftFootGrounded == false && leftFootGroundedLast == true;
-                        if (leftFootLifted)
-                        {
-                            leftLifted = strideData;
-                        }
-
-                        leftFootGroundedLast = leftFootGrounded;
-                        leftStrideData.Add(strideData);
-
-
-                        Vector3 rightFootPosition = GetFootPosition(armature.leftLeg, pose.leftLeg, hip);
-                        bool rightFootGrounded = rightFootPosition.y <= armature.rightLeg.Last().model.position.y;
-                        //bool rightFootLifted = rightFootGrounded == false && rightFootPlantedLast == true;
-                        if (rightFootGrounded == false)
-                            rightStrideData.Add(new StrideFrameData(rightFootPosition, i));
-
-                        bool rightFootPlanted = rightFootGrounded == true && rightFootPlantedLast == false;
-                        if (rightFootPlanted == false)
-                        {
-                            rightStrideData.Add(new StrideFrameData(rightFootPosition, i, 0, rightFootPosition));
-                        }
-                    }
-
-                    *//*for (int i = 0; i < leftStrideData.Count; i++)
-                    {
-                        leftStrideData[i].SetPlantFrame(lastLeft);
-                        IKVisualize.AddStrideData(leftStrideData[i]);
-                    }*//*
-                    foreach (StrideFrameData data in leftStrideData)
-                    {
-                        data.SetPlantFrame(leftPlanted);
-                    }
-
-                    StrideFrameData lastRight = rightStrideData[rightStrideData.Count - 1];
-                    for (int i = 0; i < rightStrideData.Count - 1; i++)
-                    {
-                        rightStrideData[i].SetPlantFrame(lastRight);
-                    }
-
-                    Vector3 firstPos = _keyframes[leftLifted.frame].hip.movement;
-                    Vector3 lastPos = _keyframes[leftPlanted.frame].hip.movement;
-
-                    _leftStride = new StrideData
-                    {
-                        frames = leftStrideData.ToArray(),
-                        plantedFrame = leftPlanted.frame,
-                        liftedFrame = leftLifted.frame,
-                        rootMotion = (lastPos - firstPos).xz()
-                    };
-
-                    _leftStride.Sort();
-                    _leftStride.CalculateDeltas();
-                    _leftStride.CalculateStrideLength();
-                    IKVisualize.AddStrideData(_leftStride);
-
-                    //_leftStride = leftStrideData.ToArray();
-                    if (_hasRootMotion == false)
-                        FixFootToTheGround(armature);
-                }*/
-
-        #endregion
-
-        public void SetLeftStride(StrideData data) => _leftStride = data;
-        public void SetRightStride(StrideData data) => _rightStride = data;
 
         public void ComputeRootMotion(bool avarage = false)
         {
-            if(avarage == false)
+            ComputePosition(avarage); 
+            ComputeRootRotation();
+        }
+
+        private void ComputeRootRotation()
+        {
+            float rootAngle = GetRootRotationAngle();
+
+            if (Mathf.Abs(rootAngle) < 0.1f)
+                return;
+
+            _hasRootMotion = true;
+            Vector3 prevDirection = _keyframes.First().hip.direction;
+            prevDirection = Vector3.ProjectOnPlane(prevDirection, Vector3.up).normalized;
+            float angle = 0f;
+
+            for (int i = 1; i < _keyframes.Length; i++)
+            {
+                Vector3 direction = _keyframes[i].hip.direction;
+                direction = Vector3.ProjectOnPlane(direction, Vector3.up).normalized;
+                float deltaAngle = Vector3.SignedAngle(prevDirection, direction, Vector3.up);
+                angle += deltaAngle;
+
+                Quaternion rotation = Quaternion.AngleAxis(angle, Vector3.up);
+
+                _keyframes[i].rootMotion.rotation = rotation;
+                _keyframes[i].deltaRootMotion.rotation = Quaternion.AngleAxis(deltaAngle, Vector3.up);
+                //_keyframes[i].hip.direction = Quaternion.Inverse(rotation) * _keyframes[i].hip.direction;
+
+                prevDirection = direction;
+            }
+        }
+
+        private void ComputePosition(bool avarage)
+        {
+            Vector3 movement;
+            Vector3 root;
+
+            Vector3 rootAxis = GetRootMotionAxis();
+            if (rootAxis.sqrMagnitude == 0)
+            {
+                Debug.Log("Animation has no root motion!");
+                _hasRootMotion = false;
+                return;
+            }
+            _hasRootMotion = true;
+            Vector3 hipAxis = new Vector3(1 - rootAxis.x, 1 - rootAxis.y, 1 - rootAxis.z);
+
+            if (avarage == false)
             {
                 IKPose last = _keyframes[_keyframes.Length - 2];
-                Vector3 prevRoot0 = new Vector3(_keyframes.Last().hip.movement.x, 0, _keyframes.Last().hip.movement.z);
-                Vector3 prevRoot1 = new Vector3(last.hip.movement.x, 0, last.hip.movement.z);
-                Vector3 root = new Vector3(_keyframes[0].hip.movement.x, 0, _keyframes[0].hip.movement.z);
-                _keyframes[0].hip.movement = new Vector3(0, _keyframes[0].hip.movement.y, 0);
-                _keyframes[0].rootMotion = root;
-                _keyframes[0].deltaRootMotion = prevRoot0 - prevRoot1;
+                Vector3 prevRoot0 = _keyframes.Last().hip.movement;
+                prevRoot0.Scale(rootAxis);
+                Vector3 prevRoot1 = last.hip.movement;
+                prevRoot1.Scale(rootAxis);
+
+                movement = _keyframes[0].hip.movement;
+                root = movement;
+                root.Scale(rootAxis);
+                movement.Scale(hipAxis);
+
+                _keyframes[0].hip.movement = movement;
+                _keyframes[0].rootMotion.position = root;
+                _keyframes[0].deltaRootMotion.position = prevRoot0 - prevRoot1;
                 Vector3 prevRoot = root;
 
                 for (int i = 1; i < _keyframes.Length; i++)
                 {
-                    root = new Vector3(_keyframes[i].hip.movement.x, 0, _keyframes[i].hip.movement.z);
-                    _keyframes[i].rootMotion = root;
-                    _keyframes[i].deltaRootMotion = root - prevRoot;
-                    _keyframes[i].hip.movement = new Vector3(0, _keyframes[i].hip.movement.y, 0);
+                    movement = _keyframes[i].hip.movement;
+                    root = movement;
+                    root.Scale(rootAxis);
+                    movement.Scale(hipAxis);
+
+                    _keyframes[i].rootMotion.position = root;
+                    _keyframes[i].deltaRootMotion.position = root - prevRoot;
+                    _keyframes[i].hip.movement = movement;
                     prevRoot = root;
                 }
                 return;
             }
+
             Vector3 firstPos = _keyframes.First().hip.movement;
             Vector3 lastPos = _keyframes.Last().hip.movement;
-            float movementX = lastPos.x - firstPos.x;
-            float movementZ = lastPos.z - firstPos.z;
 
-            movementX /= _keyframes.Length;
-            movementZ /= _keyframes.Length;
+            float recipFrames = 1f / _keyframes.Length;
 
-            for (int i = 0; i < _keyframes.Length; i++)
+            root = lastPos - firstPos;
+            root.Scale(rootAxis);
+            root *= recipFrames;
+
+            for (int i = 1; i < _keyframes.Length; i++)
             {
-                /*Vector3 lastHip = _keyframes[i - 1].hip.movement;
-                Vector3 difference = _keyframes[i].hip.movement - lastHip;
-                _keyframes[i].hip.movement = new Vector3(difference.x, _keyframes[i].hip.movement.y, difference.z);*/
-                _keyframes[i].hip.movement = new Vector3(0, _keyframes[i].hip.movement.y, 0);
-                _keyframes[i].rootMotion = new Vector3(movementX, 0f, movementZ);
+                movement = _keyframes[i].hip.movement;
+                movement.Scale(hipAxis);
+                _keyframes[i].hip.movement = movement;
+                _keyframes[i].rootMotion.position = root * i;
+                _keyframes[i].deltaRootMotion.position = root;
             }
         }
 
-        private Vector3 GetFootPosition(BoneTransform hip, Chain chain, IKChain ikChain)
+        private float GetRootRotationAngle()
         {
-            float length = chain.length * ikChain.lengthScale;
+            Vector3 firstPos = _keyframes.First().hip.direction;
+            Vector3 lastPos = _keyframes.Last().hip.direction;
 
-            Vector3 startPosition = (hip + chain.First().local).position;
-            Vector3 endPosition = (startPosition + ikChain.direction * length);
+            if ((lastPos - firstPos).sqrMagnitude < 0.1f)
+                return 0f;
 
-            return endPosition;
-        }
-    }
+            firstPos = Vector3.ProjectOnPlane(firstPos, Vector3.up).normalized;
+            lastPos = Vector3.ProjectOnPlane(lastPos, Vector3.up).normalized;
 
-    public struct StrideFrameData
-    {
-        public Vector3 footPosition;
-        public int frame;
-        public int frameTillPlanted;
-        public Vector3 toPlantDestination;
-        public bool isGrounded;
-        private Vector3 _delta;
+            float angle = Vector3.SignedAngle(firstPos, lastPos, Vector3.up);
 
-        public StrideFrameData(Vector3 footPosition, int frame) : this()
-        {
-            this.footPosition = footPosition;
-            this.frame = frame;
+            return angle;
         }
 
-        public StrideFrameData(Vector3 footPosition, int frame, int frameTillPlanted, Vector3 toPlantDestination) : this(footPosition, frame)
+        private Vector3 GetRootMotionAxis()
         {
-            this.frameTillPlanted = frameTillPlanted;
-            this.toPlantDestination = toPlantDestination;
+            Vector3 firstPos = _keyframes.First().hip.movement;
+            Vector3 lastPos = _keyframes.Last().hip.movement;
+
+
+            bool x = lastPos.x - firstPos.x > 0.001f;
+            bool y = lastPos.y - firstPos.y > 0.001f;
+            bool z = lastPos.z - firstPos.z > 0.001f;
+
+            if (x)
+                Debug.Log($"{firstPos.x} | {lastPos.x}");
+            if(y)
+                Debug.Log($"{firstPos.y} | {lastPos.y}");
+            if(z)
+                Debug.Log($"{firstPos.z} | {lastPos.z}");
+
+            return new Vector3(x.ToFloat(), y.ToFloat(), z.ToFloat());
         }
-
-        public void SetDelta(Vector3 delta) => _delta = delta;
-        public Vector3 GetDelta() => _delta;
-
-        public void SetPlantFrame(StrideFrameData lastStride)
-        {
-            frameTillPlanted = lastStride.frame - frame;
-            toPlantDestination = lastStride.footPosition - footPosition;
-        }
-
-        public void SetGrounded(bool grounded) => this.isGrounded = grounded;
-        public void SetAsDestination() 
-        {
-            this.frameTillPlanted = 0;
-            this.toPlantDestination = footPosition.Copy();
-        }
-    }
-
-
-    public class StrideData
-    {
-        public StrideFrameData[] frames;
-        public int liftedFrame;
-        public int plantedFrame;
-        public float strideLength;
-        public Vector3 rootMotion;
-
-        public Vector3 nextPlantedPosition;
-
-        public void CalculateStrideLength()
-        {
-            //strideLength = Vector3.Distance(frames.First().footPosition.xz(), frames.Last().footPosition.xz());
-            rootMotion = frames.Last().footPosition - frames.First().footPosition;
-            //strideLength = rootMotion.magnitude;
-        }
-        public void CalculateDeltas()
-        {
-            for (int i = 1; i < frames.Length; i++)
-            {
-                if (frames[i].isGrounded)
-                {
-                    frames[i].SetDelta(Vector3.zero);
-                    continue;
-                }
-                frames[i].SetDelta(frames[i].footPosition - frames[i - 1].footPosition);
-            }
-        }
-
-        public void CalculatePlantedAndLifted(Vector3 modelPosition)
-        {
-            bool groundedLast = frames.Last().footPosition.y <= modelPosition.y;
-            for (int i = 0; i < frames.Length; i++)
-            {
-                bool grounded = frames[i].footPosition.y <= modelPosition.y;
-
-                if (grounded == true && groundedLast == false)
-                {
-                    Debug.Log($"{i} planted {modelPosition.y} | {frames[i].footPosition.y}");
-                    plantedFrame = frames[i].frame;
-                }
-                if (grounded == false && groundedLast == true)
-                {
-                    Debug.Log($"{i} lifted");
-                    liftedFrame = i;
-                }
-                groundedLast = grounded;
-            }
-        }
-
-        public void Sort()
-        {
-            int newLength;
-            if (liftedFrame < plantedFrame)
-                newLength = plantedFrame - liftedFrame;
-            else
-                newLength = frames.Length - liftedFrame + plantedFrame;
-
-            StrideFrameData[] sortedFrames = new StrideFrameData[newLength];
-
-            for (int i = 0; i < newLength; i++)
-            {
-                int frameIndex = (liftedFrame + i) % frames.Length;
-                sortedFrames[i] = frames[frameIndex];
-            }
-
-
-            frames = sortedFrames;
-        }
-
-        public void SetRootMotion(Vector3 rootMotion) => this.rootMotion = rootMotion;
-        public void SetPlantedFrame(int frame) => this.plantedFrame = frame;
-        public void SetLiftedFrame(int frame) => this.liftedFrame = frame;
     }
 }

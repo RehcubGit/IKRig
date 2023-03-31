@@ -47,11 +47,7 @@ namespace Rehcub
             IKPose pose = animationData.animation.GetFrame(frame);
 
             if (animationData.extrectRootMotion)
-            {
-                Vector3 rootMotion = pose.GetDeltaRootMotion(_armature);
-                rootMotion.Scale(_transform.localScale);
-                _transform.position += _transform.rotation * rootMotion;
-            }
+                ApplyRootMotion(pose);
 
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
             _armature.scale = _transform.localScale;
@@ -69,11 +65,7 @@ namespace Rehcub
             IKPose pose = animationData.animation.GetFrame(frame);
 
             if (animationData.extrectRootMotion)
-            {
-                Vector3 rootMotion = pose.GetDeltaRootMotion(_armature);
-                rootMotion.Scale(_transform.localScale);
-                _transform.position += _transform.rotation * rootMotion;
-            }
+                ApplyRootMotion(pose);
 
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
             _armature.scale = _transform.localScale;
@@ -86,11 +78,8 @@ namespace Rehcub
         public void ApplyIkPose(IKPose pose, bool extrectRootMotion = false)
         {
             if (extrectRootMotion)
-            {
-                Vector3 rootMotion = pose.GetDeltaRootMotion(_armature);
-                rootMotion.Scale(_transform.localScale);
-                _transform.position += _transform.rotation * rootMotion;
-            }
+                ApplyRootMotion(pose);
+            
 
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
             _armature.scale = _transform.localScale;
@@ -98,6 +87,14 @@ namespace Rehcub
             onPreApplyIkPose?.Invoke(pose);
             pose.ApplyPose(_armature);
             ApplyPose();
+        }
+
+        private void ApplyRootMotion(IKPose pose)
+        {
+            BoneTransform rootMotion = pose.GetDeltaRootMotion(_armature);
+            rootMotion.position.Scale(_transform.localScale);
+            _transform.position += _transform.rotation * rootMotion.position;
+            //_transform.rotation *= rootMotion.rotation;
         }
 
         public void ApplyPose(Pose pose, bool extrectRootMotion = false)

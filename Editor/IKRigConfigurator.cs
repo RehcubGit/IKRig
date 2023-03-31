@@ -461,7 +461,7 @@ namespace Rehcub
         private void CreateAnimationClip()
         {
             SerializedProperty animation = settingsEditor.serializedObject.FindProperty("animation");
-            string animationName = animation.FindPropertyRelative("name").stringValue;
+            string animationName = settingsEditor.serializedObject.FindProperty("animationName").stringValue;
             SerializedProperty keyframes = animation.FindPropertyRelative("_keyframes");
             AnimationClip clip = new AnimationClip();
             clip.frameRate = 30;
@@ -470,9 +470,15 @@ namespace Rehcub
             hipPositionCurves[0] = new AnimationCurve();
             hipPositionCurves[1] = new AnimationCurve();
             hipPositionCurves[2] = new AnimationCurve();
+            
+            AnimationCurve[] rootCurves = new AnimationCurve[3];
+            rootCurves[0] = new AnimationCurve();
+            rootCurves[1] = new AnimationCurve();
+            rootCurves[2] = new AnimationCurve();
 
             float frameTime = 1.0f / 30f;
 
+            string hipName = _rig.Armature.GetBones(SourceBone.HIP).First().boneName;
             string[] boneNames = _rig.Armature.currentPose.GetNames().ToArray();
 
             for (int j = 0; j < boneNames.Length; j++)
@@ -493,21 +499,30 @@ namespace Rehcub
                 for (int j = 0; j < boneNames.Length; j++)
                 {
                     string boneName = boneNames[j];
-                    //_rig.Armature.SetKey(curves[boneName], i, boneName);
 
-                    Bone hip = _rig.Armature.currentPose[_rig.Armature.root.boneName];
-                    Vector3 position = hip.local.position;
-                    hipPositionCurves[0].AddKey(i * frameTime, position.x);
-                    hipPositionCurves[1].AddKey(i * frameTime, position.y);
-                    hipPositionCurves[2].AddKey(i * frameTime, position.z);
+                    BoneTransform boneTransform = _rig.Armature.currentPose.GetLocalTransform(boneName);
+
+                    curves[boneName][0].AddKey(i * frameTime, boneTransform.rotation.x);
+                    curves[boneName][1].AddKey(i * frameTime, boneTransform.rotation.y);
+                    curves[boneName][2].AddKey(i * frameTime, boneTransform.rotation.z);
+                    curves[boneName][3].AddKey(i * frameTime, boneTransform.rotation.w);
                 }
+
+                Vector3 position = _rig.Armature.currentPose.GetLocalTransform(hipName).position;
+                hipPositionCurves[0].AddKey(i * frameTime, position.x);
+                hipPositionCurves[1].AddKey(i * frameTime, position.y);
+                hipPositionCurves[2].AddKey(i * frameTime, position.z);
+
+                position = _rig.Armature.currentPose.rootTransform.position;
+                rootCurves[0].AddKey(i * frameTime, position.x);
+                rootCurves[1].AddKey(i * frameTime, position.y);
+                rootCurves[2].AddKey(i * frameTime, position.z);
             }
 
             //https://forum.unity.com/threads/new-animationclip-property-names.367288/
             for (int i = 0; i < boneNames.Length; i++)
             {
-                //string path = _rig.Armature.GetPath(boneNames[i]);
-                string path = ""; 
+                string path = GetPath(boneNames[i]);
                 AnimationCurve[] rotationCurves = curves[boneNames[i]];
 
                 clip.SetCurve(path, typeof(Transform), "localRotation.x", rotationCurves[0]);
@@ -516,13 +531,37 @@ namespace Rehcub
                 clip.SetCurve(path, typeof(Transform), "localRotation.w", rotationCurves[3]);
             }
 
-            clip.SetCurve(_rig.Armature.root.boneName, typeof(Transform), "localPosition.x", hipPositionCurves[0]);
-            clip.SetCurve(_rig.Armature.root.boneName, typeof(Transform), "localPosition.y", hipPositionCurves[1]);
-            clip.SetCurve(_rig.Armature.root.boneName, typeof(Transform), "localPosition.z", hipPositionCurves[2]);
+
+            clip.SetCurve(hipName, typeof(Transform), "localPosition.x", hipPositionCurves[0]);
+            clip.SetCurve(hipName, typeof(Transform), "localPosition.y", hipPositionCurves[1]);
+            clip.SetCurve(hipName, typeof(Transform), "localPosition.z", hipPositionCurves[2]);
+
+            clip.SetCurve("", typeof(Animator), "MotionT.x", rootCurves[0]);
+            clip.SetCurve("", typeof(Animator), "MotionT.y", rootCurves[1]);
+            clip.SetCurve("", typeof(Animator), "MotionT.z", rootCurves[2]);
+
 
             string assetPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/AnimationClips/{animationName}.anim");
             AssetDatabase.CreateAsset(clip, assetPath);
             AssetDatabase.SaveAssets();
+        }
+
+        public string GetPath(string boneName)
+        {
+            string root = _rig.Armature.GetBones(SourceBone.HIP).First().boneName;
+
+            string path = boneName;
+            string parent = boneName;
+
+            while (parent != root)
+            {
+                parent = _rig.Armature.GetBone(parent).parentName;
+                path = parent + "/" + path;
+            }
+
+            //path = root + "/" + path;
+
+            return path;
         }
 
         private IEnumerable<System.Type> GetTypes(System.Type type)

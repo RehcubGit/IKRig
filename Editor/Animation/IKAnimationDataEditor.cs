@@ -12,6 +12,8 @@ namespace Rehcub
         private SerializedProperty _loopProp;
         private SerializedProperty _extrectRootMotionProp;
 
+        private bool _hasRootMotion;
+
         private void OnEnable()
         {
             IKAnimationData animationData = target as IKAnimationData;
@@ -25,6 +27,7 @@ namespace Rehcub
             _animationName = name;
 
             _loopProp = serializedObject.FindProperty("loop");
+            _hasRootMotion = animationData.animation.HasRootMotion;
             _extrectRootMotionProp = serializedObject.FindProperty("extrectRootMotion");
         }
 
@@ -35,7 +38,8 @@ namespace Rehcub
             EditorGUILayout.LabelField("Name", _animationName);
 
             DrawToggle(_loopProp);
-            DrawToggle(_extrectRootMotionProp);
+            if(_hasRootMotion)
+                DrawToggle(_extrectRootMotionProp);
 
             serializedObject.ApplyModifiedProperties();
         }

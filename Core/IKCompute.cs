@@ -25,7 +25,7 @@ namespace Rehcub
 
 			ikPose.hip.bindHeight = bindModel.position.y;
 			ikPose.hip.movement = animatedPoseBone.model.position - bindModel.position;
-			ikPose.rootMotion = Vector3.zero;
+			ikPose.rootMotion = BoneTransform.zero;
 			ikPose.hip.direction = poseBoneForward;
 			ikPose.hip.twist = 0f;
 
