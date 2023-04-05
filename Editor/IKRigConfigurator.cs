@@ -297,32 +297,27 @@ namespace Rehcub
                     if (selectedProperty.objectReferenceValue == null)
                         return;
 
-                    DrawSettingsEditor(selectedProperty.objectReferenceValue, ref settingsEditor);
+                    DrawSettingsEditor(selectedProperty.objectReferenceValue, ref settingsEditor); 
                     //GUILayout.Space(15);
                     Separator(1, 30);
 
-                    if(GUILayout.Button("Create Animation Clip"))
-                        CreateAnimationClip();
+                    IKAnimationData animationData = (IKAnimationData)selectedProperty.objectReferenceValue;
 
-                    SerializedProperty animation = settingsEditor.serializedObject.FindProperty("_animation");
-                    SerializedProperty keyframes = animation.FindPropertyRelative("_keyframes");
+                    if (GUILayout.Button("Create Animation Clip"))
+                        AnimationClipFactory.Create(_rig, animationData);
+
+
+                    int keys = animationData.animation.FrameCount;
 
                     int previewsKeyframe = _currentKeyframe;
-                    _currentKeyframe = EditorGUILayout.IntSlider(_currentKeyframe, 0, keyframes.arraySize - 1);
+                    _currentKeyframe = EditorGUILayout.IntSlider(_currentKeyframe, 0, keys - 1);
                     if (previewsKeyframe != _currentKeyframe)
                         ApplyIkPose();
-                    /*if (previewsKeyframe != _currentKeyframe)
-                        ApplyPose();*/
 
-                    DrawPlayControls(keyframes.arraySize);
+                    DrawPlayControls(keys);
 
-                    //Undo.RecordObject(settingsEditor.serializedObject.targetObject, "Generic Animation Apply");
-                    //Undo.RegisterCompleteObjectUndo(settingsEditor.serializedObject.targetObject, "Test");
                     if (settingsEditor.serializedObject.ApplyModifiedProperties())
-                    {
-                        //ApplyIkPose();
                         ApplyPose();
-                    }
                 }
             }
 
@@ -416,20 +411,6 @@ namespace Rehcub
 
         #region Helper Functions
 
-        private void AddModifier(System.Type type)
-        {
-            SerializedProperty modifierProp = GetModifierProperty();
-            modifierProp.arraySize++;
-            SerializedProperty modProp = modifierProp.GetArrayElementAtIndex(modifierProp.arraySize - 1);
-            modProp.managedReferenceValue = System.Activator.CreateInstance(type);
-        }
-
-        private void RemoveModifier(int index)
-        {
-            SerializedProperty modifierProp = GetModifierProperty();
-            modifierProp.DeleteArrayElementAtIndex(index);
-        }
-
         private void ApplyIkPose()
         {
             if (selectedProperty == null)
@@ -440,14 +421,6 @@ namespace Rehcub
             IKAnimationData animationData = (IKAnimationData)selectedProperty.objectReferenceValue;
 
             _rig.ApplyIkPose(animationData, _currentKeyframe);
-        }
-
-        private void ApplyIkPose(IKPose pose)
-        {
-            _rig.ApplyIkPose(pose);
-            if (settingsEditor == null)
-                return;
-            settingsEditor.serializedObject.Update();
         }
 
         private void ApplyPose()
@@ -461,167 +434,15 @@ namespace Rehcub
             _rig.ApplyPose(pose);
         }
 
-        private void CreateAnimationClip()
-        {
-            IKAnimationData animationData = (IKAnimationData)selectedProperty.objectReferenceValue;
-            SerializedProperty animation = settingsEditor.serializedObject.FindProperty("_animation");
-            string animationName = settingsEditor.serializedObject.FindProperty("_animationName").stringValue;
-            SerializedProperty keyframes = animation.FindPropertyRelative("_keyframes");
-
-            AnimationClip clip = new AnimationClip
-            {
-                frameRate = 30
-            };
-            if (animationData.loop)
-                clip.wrapMode = WrapMode.Loop;
-
-            Dictionary<string, AnimationCurve[]> curves = new Dictionary<string, AnimationCurve[]>();
-
-            AnimationCurve[] hipPositionCurves = new AnimationCurve[3];
-            hipPositionCurves[0] = new AnimationCurve();
-            hipPositionCurves[1] = new AnimationCurve();
-            hipPositionCurves[2] = new AnimationCurve();
-
-            AnimationCurve[] rootCurves = new AnimationCurve[3];
-            rootCurves[0] = new AnimationCurve();
-            rootCurves[1] = new AnimationCurve();
-            rootCurves[2] = new AnimationCurve();
-
-            AnimationCurve[] rootRotationCurves = new AnimationCurve[4];
-            rootRotationCurves[0] = new AnimationCurve();
-            rootRotationCurves[1] = new AnimationCurve();
-            rootRotationCurves[2] = new AnimationCurve();
-            rootRotationCurves[3] = new AnimationCurve();
-
-            float frameTime = 1.0f / 30f;
-
-            string hipName = _rig.Armature.GetBones(SourceBone.HIP).First().boneName;
-            string hipPath = GetPath(hipName);
-            string[] boneNames = _rig.Armature.currentPose.GetNames().ToArray();
-
-            for (int j = 0; j < boneNames.Length; j++)
-            {
-                string boneName = boneNames[j];
-                curves[boneName] = new AnimationCurve[4];
-                curves[boneName][0] = new AnimationCurve();
-                curves[boneName][1] = new AnimationCurve();
-                curves[boneName][2] = new AnimationCurve();
-                curves[boneName][3] = new AnimationCurve();
-            }
-
-            for (int i = 0; i < keyframes.arraySize; i++)
-            {
-                _rig.ApplyIkPose(animationData, i);
-
-                float time = i * frameTime;
-
-                for (int j = 0; j < boneNames.Length; j++)
-                {
-                    string boneName = boneNames[j];
-
-                    BoneTransform boneTransform = _rig.Armature.currentPose.GetLocalTransform(boneName);
-                    AddRotationKey(boneTransform.rotation, curves[boneName], time);
-                }
-
-                Vector3 position = _rig.Armature.currentPose.GetLocalTransform(hipName).position;
-                AddPositionKey(position, hipPositionCurves, time);
-
-                BoneTransform rootTransform = _rig.Armature.currentPose.rootTransform;
-                AddPositionKey(rootTransform.position, rootCurves, time);
-                AddRotationKey(rootTransform.rotation, rootRotationCurves, time);
-            }
-
-            //https://forum.unity.com/threads/new-animationclip-property-names.367288/
-            for (int i = 0; i < boneNames.Length; i++)
-            {
-                string path = GetPath(boneNames[i]);
-                Debug.Log(path);
-                AnimationCurve[] rotationCurves = curves[boneNames[i]];
-
-                SetRotationCurve(clip, rotationCurves, path, "localRotation");
-            }
-
-            SetPositionCurve(clip, hipPositionCurves, hipPath, "localPosition");
-
-            clip.SetCurve("", typeof(Animator), "MotionT.x", rootCurves[0]);
-            clip.SetCurve("", typeof(Animator), "MotionT.y", rootCurves[1]);
-            clip.SetCurve("", typeof(Animator), "MotionT.z", rootCurves[2]);
-
-            clip.SetCurve("", typeof(Animator), "MotionQ.x", rootRotationCurves[0]);
-            clip.SetCurve("", typeof(Animator), "MotionQ.y", rootRotationCurves[1]);
-            clip.SetCurve("", typeof(Animator), "MotionQ.z", rootRotationCurves[2]);
-            clip.SetCurve("", typeof(Animator), "MotionQ.w", rootRotationCurves[3]);
-
-
-            string assetPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/AnimationClips/{animationName}.anim");
-            AssetDatabase.CreateAsset(clip, assetPath);
-            AssetDatabase.SaveAssets();
-        }
-
-        private static void AddPositionKey(Vector3 position, AnimationCurve[] curves, float time)
-        {
-            curves[0].AddKey(time, position.x);
-            curves[1].AddKey(time, position.y);
-            curves[2].AddKey(time, position.z);
-        }
-
-        private static void AddRotationKey(Quaternion rotation, AnimationCurve[] curves, float time)
-        {
-            curves[0].AddKey(time, rotation.x);
-            curves[1].AddKey(time, rotation.y);
-            curves[2].AddKey(time, rotation.z);
-            curves[3].AddKey(time, rotation.w);
-        }
-
-        private static void SetPositionCurve(AnimationClip clip, AnimationCurve[] positionCurves, string path, string property)
-        {
-            clip.SetCurve(path, typeof(Transform), property + ".x", positionCurves[0]);
-            clip.SetCurve(path, typeof(Transform), property + ".y", positionCurves[1]);
-            clip.SetCurve(path, typeof(Transform), property + ".z", positionCurves[2]);
-        }
-        private static void SetRotationCurve(AnimationClip clip, AnimationCurve[] positionCurves, string path, string property)
-        {
-            clip.SetCurve(path, typeof(Transform), property + ".x", positionCurves[0]);
-            clip.SetCurve(path, typeof(Transform), property + ".y", positionCurves[1]);
-            clip.SetCurve(path, typeof(Transform), property + ".z", positionCurves[2]);
-            clip.SetCurve(path, typeof(Transform), property + ".w", positionCurves[3]);
-        }
-
-        public string GetPath(string boneName)
-        {
-            Transform root = _rig.transform;
-            Transform bone = _rig.Armature.GetTransform(boneName);
-            Transform parent = bone.parent;
-
-            string path = boneName;
-
-            while (parent != root)
-            {
-                path = parent.name + "/" + path;
-                parent = parent.parent;
-            }
-
-            //path = root + "/" + path;
-
-            return path;
-        }
-
-        private IEnumerable<System.Type> GetTypes(System.Type type)
-        {
-            var types = System.AppDomain.CurrentDomain.GetAssemblies().SelectMany(assembly => assembly.GetTypes());
-            return types.Where(p => type.IsAssignableFrom(p) && !p.IsAbstract);
-        }
-
         private void Drag()
         {
-            //object[] objects = DropZone(typeof(IKAnimationData));
             object[] objects = DropZone(100, 100, typeof(IKAnimationData));
 
             if (objects == null)
                 return;
 
-            /*if (objects[0].GetType() != typeof(IKAnimationData))
-                return;*/
+            if (objects[0].GetType() != typeof(IKAnimationData))
+                return;
 
             int index = currentProperty.arraySize;
             currentProperty.arraySize++;
@@ -630,8 +451,6 @@ namespace Rehcub
             prop.objectReferenceValue = (Object)objects[0];
             selectedProperty = prop;
         }
-
-        private SerializedProperty GetModifierProperty() => settingsEditor.serializedObject.FindProperty("_modifiers");
 
         #endregion
     }

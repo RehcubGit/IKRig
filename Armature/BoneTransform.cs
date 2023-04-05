@@ -168,7 +168,7 @@ namespace Rehcub
 
         public override string ToString()
         {
-            return $"{position}\n{rotation}\n{scale}";
+            return $"{position}\n{rotation.eulerAngles}\n{scale}";
         }
     }
 }
