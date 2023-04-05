@@ -9,7 +9,6 @@ namespace Rehcub
         private IKSource _iKSource;
         private AnimationClip _clip;
 
-        private IKPose _ikPose;
         private IKAnimationData _animationData;
 
         private bool _isPlaying;
@@ -17,6 +16,14 @@ namespace Rehcub
 
         private bool _showAnimationDebug;
         private int _currentKeyframe;
+
+        private float _rootAngle; 
+        Vector3 _rootAxis;
+
+
+        private bool _hasRootCurve;
+        private bool _hasBakedRootMotion;
+        private bool _hasBakedRootRotation;
 
         public static void ShowConfigurator(IKSource iKSource)
         {
@@ -26,6 +33,30 @@ namespace Rehcub
             window._animationData = iKSource.AnimationData;
             _window = window;
             _window.position.Set(0f, _window.position.y, 550f, 140f);
+
+            _window.Init();
+        }
+
+        private void Init()
+        {
+            currentProperty = serializedObject.FindProperty("_clip");
+
+            if (currentProperty.objectReferenceValue == null)
+                return;
+
+            GetClipData();
+        }
+
+        private void GetClipData()
+        {
+            _hasRootCurve = _iKSource.HasRootMotionCurve();
+            _hasBakedRootMotion = _iKSource.HasBakedRootMotion();
+            _hasBakedRootRotation = _iKSource.HasBakedRootRotation();
+
+            Debug.Log(_hasRootCurve);
+
+            _rootAngle = _iKSource.GetRootRotationAngle();
+            _rootAxis = _iKSource.GetRootMotionAxis();
         }
 
         private void OnEnable()
@@ -53,10 +84,29 @@ namespace Rehcub
             {
                 int frames = (int)(_clip.length * _clip.frameRate);
                 _currentKeyframe = EditorGUILayout.IntSlider(_currentKeyframe, 0, frames);
+
+                if (check.changed)
+                {
+                    _iKSource.SampleAnimation(_currentKeyframe);
+                }
+            }
+            
+            using (var check = new EditorGUI.ChangeCheckScope())
+            {
                 EditorGUILayout.PropertyField(currentProperty);
 
                 if (check.changed)
-                    _ikPose = _iKSource.EditorDebug(_currentKeyframe);
+                {
+                    if (currentProperty.objectReferenceValue == null)
+                        return;
+
+                    Apply();
+
+                    GetClipData();
+
+                    _currentKeyframe = 0;
+                    _iKSource.SampleAnimation(_currentKeyframe);
+                }
             }
 
             if (_clip == null)
@@ -67,7 +117,7 @@ namespace Rehcub
             if (GUILayout.Button("Create IK Animation Object"))
             {
                 //TODO: Make a toggle with has root motion
-                _animationData = _iKSource.CreateIKAnimation();
+                _animationData = _iKSource.CreateIKAnimation(_rootAxis, _rootAngle);
 
                 if (AssetDatabase.IsValidFolder("Assets/IKAnimations") == false)
                     AssetDatabase.CreateFolder("Assets", "IKAnimations");
@@ -84,6 +134,63 @@ namespace Rehcub
                 _iKSource.ResetToTPose();
 
             Apply();
+
+            if (_hasRootCurve)
+            {
+                using (new GUILayout.VerticalScope("box", GUILayout.ExpandWidth(true)))
+                {
+                    EditorGUILayout.LabelField("The animation has root motion curves");
+
+                    _clip.GetAnimationRoot(_clip.length, out Vector3 motion, out Quaternion rotation);
+
+                    Vector3 euler = rotation.eulerAngles;
+                    EditorGUILayout.LabelField($"Motion: ({motion.x}, {motion.y}, {motion.z})");
+                    EditorGUILayout.LabelField($"Rotation: ({euler.x}, {euler.y}, {euler.z})");
+                }
+                return;
+            }
+
+            if (_hasBakedRootMotion)
+            {
+                using (new GUILayout.HorizontalScope("box", GUILayout.ExpandWidth(true)))
+                {
+                    EditorGUILayout.LabelField($"Baked root motion axis: {_rootAxis.x}, {_rootAxis.y}, {_rootAxis.z}", GUILayout.MaxWidth(200f));
+
+                    EditorGUILayout.LabelField("X:", GUILayout.MaxWidth(15f));
+                    _rootAxis.x = EditorGUILayout.Toggle(_rootAxis.x == 1, GUILayout.MaxWidth(30f)).ToFloat();
+
+                    EditorGUILayout.LabelField("Y:", GUILayout.MaxWidth(15f));
+                    _rootAxis.y = EditorGUILayout.Toggle(_rootAxis.y == 1, GUILayout.MaxWidth(30f)).ToFloat();
+
+                    EditorGUILayout.LabelField("Z:", GUILayout.MaxWidth(15f));
+                    _rootAxis.z = EditorGUILayout.Toggle(_rootAxis.z == 1, GUILayout.MaxWidth(30f)).ToFloat();
+
+                    if (GUILayout.Button("Reset", GUILayout.MaxWidth(50f)))
+                    {
+                        _rootAxis = _iKSource.GetRootMotionAxis();
+                    }
+                }
+
+            }
+
+            if (_hasBakedRootRotation)
+            {
+                using (new GUILayout.HorizontalScope("box", GUILayout.ExpandWidth(true)))
+                {
+                    EditorGUILayout.LabelField("Baked root rotation: ", GUILayout.MaxWidth(200f));
+
+                    EditorGUILayout.LabelField(EditorGUIUtility.TrTextContent("Angle: ",
+                        "When the Rotation of the hip first hits that value the rotation of the hip will no longer be extracted!"), 
+                        GUILayout.MaxWidth(40f)
+                        );
+                    _rootAngle = EditorGUILayout.FloatField(_rootAngle, GUILayout.MaxWidth(107f));
+
+                    if (GUILayout.Button("Reset", GUILayout.MaxWidth(50f)))
+                    {
+                        _rootAngle = _iKSource.GetRootRotationAngle();
+                    }
+                }
+            }
         }
 
         private void StartPlayingAnimation()
@@ -114,7 +221,7 @@ namespace Rehcub
                     _isPlaying = false;
                 }
             }
-            _ikPose = _iKSource.EditorDebug(_currentKeyframe);
+            _iKSource.SampleAnimation(_currentKeyframe);
         }
 
         private void DrawPlayControls()
@@ -134,6 +241,7 @@ namespace Rehcub
                     _currentKeyframe--;
                     if (_currentKeyframe < 0)
                         _currentKeyframe = keyframeCount - 1;
+                    _iKSource.SampleAnimation(_currentKeyframe);
                 }
                 if (_isPlaying == false)
                 {
@@ -155,6 +263,7 @@ namespace Rehcub
                     _currentKeyframe++;
                     if (_currentKeyframe >= keyframeCount)
                         _currentKeyframe = 0;
+                    _iKSource.SampleAnimation(_currentKeyframe);
                 }
             }
         }
@@ -176,21 +285,6 @@ namespace Rehcub
                 return;
 
             IKEditorDebug.DrawPose(_iKSource.Armature, _iKSource.Armature.currentPose);
-
-            if (_animationData == null)
-                return;
-
-            if(_ikPose == null)
-                _ikPose = _animationData.animation.GetFrame(0);
-
-            /*IKEditorDebug.DrawHip(_iKSource.Armature, _ikPose);
-            IKEditorDebug.DrawIKChain(_iKSource.Armature.currentPose, _iKSource.Armature.spine, _ikPose.spine);
-            IKEditorDebug.DrawIKChain(_iKSource.Armature.currentPose, _iKSource.Armature.leftArm, _ikPose.leftArm);
-            IKEditorDebug.DrawIKChain(_iKSource.Armature.currentPose, _iKSource.Armature.rightArm, _ikPose.rightArm);
-            IKEditorDebug.DrawIKChain(_iKSource.Armature.currentPose, _iKSource.Armature.leftLeg, _ikPose.leftLeg);
-            IKEditorDebug.DrawIKChain(_iKSource.Armature.currentPose, _iKSource.Armature.rightLeg, _ikPose.rightLeg);
-
-            IKEditorDebug.DrawBone(_iKSource.Armature.currentPose, _iKSource.Armature.head, _ikPose.head);*/
         }
     }
 }

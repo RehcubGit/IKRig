@@ -160,6 +160,13 @@ namespace Rehcub
         
         public static Vector3 AddZ(this Vector3 v, float z) => new Vector3(v.x, v.y, v.z + z);
 
+        public static void Abs(this ref Vector3 v)
+        {
+            v.x = Mathf.Abs(v.x);
+            v.y = Mathf.Abs(v.y);
+            v.z = Mathf.Abs(v.z);
+        }
+
         public static Vector3 SinLerp(Vector3 a, Vector3 b, float t, float amp)
         {
             float tPi = t * Mathf.PI;
@@ -297,20 +304,6 @@ namespace Rehcub
             if (Mathf.Abs(point[2]) > Mathf.Abs(point[direction]))
                 direction = 2;
             return direction;
-        }
-
-        public static string ToString(this Vector3 v, int digits)
-        {
-            if(digits == 2)
-                return string.Format("{0:N2}, {1:N2}, {2:N2}", v.x, v.y, v.z);
-            if(digits == 3)
-                return string.Format("{0:N3}, {1:N3}, {2:N3}", v.x, v.y, v.z);
-            if(digits == 4)
-                return string.Format("{0:N4}, {1:N4}, {2:N4}", v.x, v.y, v.z);
-            if(digits == 5)
-                return string.Format("{0:N5}, {1:N5}, {2:N5}", v.x, v.y, v.z);
-            
-            return v.ToString();
         }
 
         #endregion
@@ -546,6 +539,52 @@ namespace Rehcub
             transform.localRotation = Quaternion.identity;
             transform.localScale = Vector3.one;
         }
+        #endregion
+
+
+        #region AnimationClip
+
+
+        public static void GetAnimationRoot(this AnimationClip clip, float time, out Vector3 position, out Quaternion rotation)
+        {
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+
+            var curveBindings = UnityEditor.AnimationUtility.GetCurveBindings(clip);
+            foreach (var curveBinding in curveBindings)
+            {
+                string propertyName = curveBinding.propertyName;
+                if (curveBinding.path.Equals(""))
+                {
+                    AnimationCurve curve = UnityEditor.AnimationUtility.GetEditorCurve(clip, curveBinding);
+
+                    if (propertyName.Contains("T.x"))
+                        position.x = curve.Evaluate(time);
+                    if (propertyName.Contains("T.y"))
+                        position.y = curve.Evaluate(time);
+                    if (propertyName.Contains("T.z"))
+                        position.z = curve.Evaluate(time);
+
+                    if (propertyName.Contains("Q.x"))
+                        rotation.x = curve.Evaluate(time);
+                    if (propertyName.Contains("Q.y"))
+                        rotation.y = curve.Evaluate(time);
+                    if (propertyName.Contains("Q.z"))
+                        rotation.z = curve.Evaluate(time);
+                    if (propertyName.Contains("Q.w"))
+                        rotation.w = curve.Evaluate(time);
+                }
+            }
+        }
+
+        public static void SampleAnimationRoot(this AnimationClip clip, Transform root, float time)
+        {
+            clip.GetAnimationRoot(time, out Vector3 position, out Quaternion rotation);
+
+            root.position = position;
+            root.rotation = rotation;
+        }
+
         #endregion
 
         #region Editor

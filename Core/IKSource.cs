@@ -22,34 +22,124 @@ namespace Rehcub
             _armature = armature;
         }
 
-        public IKAnimationData CreateIKAnimation()
+        public IKAnimationData CreateIKAnimation(Vector3 rootMotionAxis, float targetAngle)
         {
             int frameCount = (int)(_clip.length * _clip.frameRate);
+            //bool hasRootMotion = HasRootMotionCurve() || HasBakedRootMotion() || HasBakedRootRotation();
 
-            IKAnimation ikAnimation = new IKAnimation(_clip.length, _clip.frameRate)
-            {
-                name = _clip.name
-            };
 
-            float frameTime = 1.0f / _clip.frameRate;
+            bool hasRootMotion = Mathf.Abs(rootMotionAxis.sqrMagnitude) > 0f || Mathf.Abs(targetAngle) > 0f;
+
+            IKAnimation ikAnimation = new IKAnimation(_clip.length, _clip.frameRate, hasRootMotion);
+
+            Vector3 prevRootMovement = Vector3.zero;
+            Quaternion prevRootRotation = Quaternion.identity;
+            float prevRootAngle = 0f;
+            bool ignoreFurtherRotation = false;
+
+            IKPose firstPose = null;
 
             for (int i = 0; i <= frameCount; i++)
             {
-                _clip.SampleAnimation(gameObject, i * frameTime);
+                bool lastFrame = i == frameCount;
+
+                SampleAnimation(i);
+
+                GetRootMotion(targetAngle, rootMotionAxis, out Vector3 rootMovement, out Quaternion rootRotation, i, lastFrame, ref ignoreFurtherRotation);
+
+
                 IKPose pose = Compute();
+
+                if (i == 0)
+                    firstPose = pose;
+
+                ApplyRootMotionToPose(ref prevRootMovement, ref prevRootRotation, rootMovement, rootRotation, pose);
+                
+
                 ikAnimation.AddKeyframe(pose, i);
             }
 
-            ikAnimation.ComputeRootMotion();
+            if (hasRootMotion)
+            {
+                /*BoneTransform lastFrameRoot = ikAnimation.GetFrame(frameCount).deltaRootMotion;
+                firstPose.deltaRootMotion = lastFrameRoot;*/
+            }
 
-            IKAnimationData data = ScriptableObject.CreateInstance<IKAnimationData>();
+            Debug.Log(ikAnimation.FrameCount);
 
-            data.animation = ikAnimation;
-            data.animationName = _clip.name;
+            IKAnimationData data = IKAnimationData.Create(_clip.name, ikAnimation);
 
             _animationData = data;
 
             return data;
+        }
+
+        private void GetRootMotion(float targetAngle, Vector3 rootMotionAxis, out Vector3 rootMovement, out Quaternion rootRotation, int frame, bool lastFrame, ref bool ignoreFurtherRotation)
+        {
+            if (HasRootMotionCurve())
+            {
+                SampleAnimation(frame);
+                rootMovement = transform.position;
+                rootRotation = transform.rotation;
+                return;
+            }
+
+            string hipName = _armature.GetBones(SourceBone.HIP).First().boneName;
+            Transform hipTransform = _armature.GetTransform(hipName);
+
+            ExtractRootMotion(frame, rootMotionAxis, out rootMovement, out float rootAngle);
+
+            ignoreFurtherRotation |= Mathf.Abs(rootAngle) >= Mathf.Abs(targetAngle);
+
+            if (ignoreFurtherRotation || lastFrame)
+                rootAngle = targetAngle;
+
+            rootRotation = Quaternion.AngleAxis(rootAngle, Vector3.up);
+            Quaternion invRootRotation = Quaternion.Inverse(rootRotation);
+
+            hipTransform.position -= rootMovement;
+            hipTransform.localPosition = invRootRotation * hipTransform.localPosition;
+            hipTransform.rotation = invRootRotation * hipTransform.rotation;
+            
+        }
+
+        private static void ApplyRootMotionToPose(ref Vector3 prevRootMovement, ref Quaternion prevRootRotation, Vector3 rootMovement, Quaternion rootRotation, IKPose pose)
+        {
+            pose.rootMotion.position = rootMovement;
+            pose.rootMotion.rotation = rootRotation;
+
+            pose.deltaRootMotion.position = rootMovement - prevRootMovement;
+            pose.deltaRootMotion.rotation = Quaternion.Inverse(prevRootRotation) * rootRotation;
+            //float deltaAngle = rootAngle - prevRootAngle;
+            //pose.deltaRootMotion.rotation = Quaternion.Euler(0f, deltaAngle, 0f);
+
+            prevRootMovement = rootMovement;
+            prevRootRotation = rootRotation;
+            //prevRootAngle = rootAngle;
+        }
+
+        private void ExtractRootMotion(int frame, Vector3 rootMotionAxis, out Vector3 rootMovement, out float rootAngle)
+        {
+            string hipName = _armature.GetBones(SourceBone.HIP).First().boneName;
+            Transform hipTransform = _armature.GetTransform(hipName);
+
+            SampleAnimation(0);
+
+            Vector3 startPosition = hipTransform.position;
+            Quaternion startRotation = hipTransform.rotation;
+
+            SampleAnimation(frame);
+
+            Vector3 endPosition = hipTransform.position;
+            Quaternion endRotation = hipTransform.rotation;
+
+            rootMovement = endPosition - startPosition;
+            rootMovement.Scale(rootMotionAxis);
+
+            Quaternion startToEndRotation = Quaternion.Inverse(startRotation) * endRotation;
+            Vector3 rootForward = startToEndRotation * Vector3.forward;
+            rootForward = Vector3.ProjectOnPlane(rootForward, Vector3.up).normalized;
+            rootAngle = Vector3.SignedAngle(Vector3.forward, rootForward, Vector3.up);
         }
 
         public void ResetToTPose()
@@ -57,11 +147,11 @@ namespace Rehcub
             _tPose.SampleAnimation(gameObject, 0);
         }
 
-        public IKPose EditorDebug(int frame)
+        public void SampleAnimation(int frame)
         {
-            float frameTime = 1.0f / _clip.frameRate;
-            _clip.SampleAnimation(gameObject, frame * frameTime);
-            return Compute();
+            float frameTime = frame / _clip.frameRate;
+            _clip.SampleAnimation(gameObject, frameTime);
+            _clip.SampleAnimationRoot(transform, frameTime);
         }
 
         private IKPose Compute()
@@ -97,5 +187,57 @@ namespace Rehcub
 
             return ikPose;
         }
+
+
+        #region RootMotion
+
+        public bool HasRootMotionCurve() => _clip.hasRootCurves || _clip.hasGenericRootTransform || _clip.hasMotionCurves;
+
+        public bool HasBakedRootMotion() => GetRootMotionAxis().sqrMagnitude > 0.01f;
+        public bool HasBakedRootRotation() => Mathf.Abs(GetRootRotationAngle()) > 0.1f;
+
+        public Vector3 GetRootMotionAxis()
+        {
+            string hipName = _armature.GetBones(SourceBone.HIP).First().boneName;
+            Transform hipTransform = _armature.GetTransform(hipName);
+
+            _clip.SampleAnimation(gameObject, 0f);
+            Vector3 firstPos = hipTransform.position;
+
+            _clip.SampleAnimation(gameObject, _clip.length);
+            Vector3 lastPos = hipTransform.position;
+
+            Vector3 dist = lastPos - firstPos;
+            dist.Abs();
+
+            bool x = dist.x > 0.001f;
+            bool y = dist.y > 0.001f;
+            bool z = dist.z > 0.001f;
+
+            return new Vector3(x.ToFloat(), y.ToFloat(), z.ToFloat());
+        }
+        public float GetRootRotationAngle()
+        {
+            string hipName = _armature.GetBones(SourceBone.HIP).First().boneName;
+            Transform hipTransform = _armature.GetTransform(hipName);
+
+            _clip.SampleAnimation(gameObject, 0f);
+            Vector3 firstPos = hipTransform.rotation * Vector3.forward;
+
+            _clip.SampleAnimation(gameObject, _clip.length);
+            Vector3 lastPos = hipTransform.rotation * Vector3.forward;
+
+            if ((lastPos - firstPos).sqrMagnitude < 0.1f)
+                return 0f;
+
+            firstPos = Vector3.ProjectOnPlane(firstPos, Vector3.up).normalized;
+            lastPos = Vector3.ProjectOnPlane(lastPos, Vector3.up).normalized;
+
+            float angle = Vector3.SignedAngle(firstPos, lastPos, Vector3.up);
+
+            return angle;
+        }
+
+        #endregion
     }
 }

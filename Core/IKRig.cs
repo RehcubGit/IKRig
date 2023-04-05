@@ -46,7 +46,7 @@ namespace Rehcub
         {
             IKPose pose = animationData.animation.GetFrame(frame);
 
-            if (animationData.extrectRootMotion)
+            if (animationData.applyRootMotion)
                 ApplyRootMotion(pose);
 
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
@@ -64,7 +64,7 @@ namespace Rehcub
 
             IKPose pose = animationData.animation.GetFrame(frame);
 
-            if (animationData.extrectRootMotion)
+            if (animationData.applyRootMotion)
                 ApplyRootMotion(pose);
 
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
@@ -80,7 +80,6 @@ namespace Rehcub
             if (extrectRootMotion)
                 ApplyRootMotion(pose);
             
-
             _armature.currentPose.rootTransform = new BoneTransform(_transform);
             _armature.scale = _transform.localScale;
 
@@ -93,8 +92,13 @@ namespace Rehcub
         {
             BoneTransform rootMotion = pose.GetDeltaRootMotion(_armature);
             rootMotion.position.Scale(_transform.localScale);
-            _transform.position += _transform.rotation * rootMotion.position;
-            //_transform.rotation *= rootMotion.rotation;
+            _transform.position += rootMotion.position;
+            _transform.rotation *= rootMotion.rotation;
+
+            /*rootMotion = pose.GetRootMotion(_armature);
+            rootMotion.position.Scale(_transform.localScale);
+            _transform.position = rootMotion.position;
+            _transform.rotation = rootMotion.rotation;*/
         }
 
         public void ApplyPose(Pose pose, bool extrectRootMotion = false)

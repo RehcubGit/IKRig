@@ -10,7 +10,7 @@ namespace Rehcub
         private string _animationName;
 
         private SerializedProperty _loopProp;
-        private SerializedProperty _extrectRootMotionProp;
+        private SerializedProperty _applyRootMotionProp;
 
         private bool _hasRootMotion;
 
@@ -21,14 +21,14 @@ namespace Rehcub
             string assetPath = AssetDatabase.GetAssetPath(animationData.GetInstanceID());
             name = Path.GetFileNameWithoutExtension(assetPath);
 
-            serializedObject.FindProperty("animationName").stringValue = name;
+            serializedObject.FindProperty("_animationName").stringValue = name;
             serializedObject.ApplyModifiedProperties();
 
             _animationName = name;
 
-            _loopProp = serializedObject.FindProperty("loop");
+            _loopProp = serializedObject.FindProperty("_loop");
             _hasRootMotion = animationData.animation.HasRootMotion;
-            _extrectRootMotionProp = serializedObject.FindProperty("extrectRootMotion");
+            _applyRootMotionProp = serializedObject.FindProperty("_applyRootMotion");
         }
 
         public override void OnInspectorGUI()
@@ -39,7 +39,7 @@ namespace Rehcub
 
             DrawToggle(_loopProp);
             if(_hasRootMotion)
-                DrawToggle(_extrectRootMotionProp);
+                DrawToggle(_applyRootMotionProp);
 
             serializedObject.ApplyModifiedProperties();
         }

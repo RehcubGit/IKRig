@@ -6,33 +6,39 @@ namespace Rehcub
     [CreateAssetMenu(fileName = "Animation", menuName = "Animation/IKAnimation", order = 1)]
     public class IKAnimationData : ScriptableObject
     {
-        public IKAnimation animation;
-        public string animationName;
-        public bool loop;
-        public bool mirror;
-        public bool cancle;
-        public bool extrectRootMotion;
-        public bool applyRootMotion;
+        public IKAnimation animation => _animation;
+        [SerializeField] private IKAnimation _animation;
 
-        public static IKAnimationData CreateIKAnimation(IKPose[] poses)
+        public string animationName => _animationName;
+        [SerializeField] private string _animationName;
+
+
+        public bool loop => _loop;
+        [SerializeField] private bool _loop;
+
+        public bool applyRootMotion => _applyRootMotion;
+        [SerializeField] private bool _applyRootMotion;
+
+
+        public static IKAnimationData Create(string name, IKAnimation animation)
         {
-            string name = "Test";
+            IKAnimationData data = CreateInstance<IKAnimationData>();
 
-            IKAnimation ikAnimation = new IKAnimation(poses.Length)
-            {
-                name = name
-            };
+            data._animation = animation;
+            data._animationName = name;
+            return data;
+        }
+
+        public static IKAnimationData Create(string name, IKPose[] poses)
+        {
+            IKAnimation animation = new IKAnimation(poses.Length);
 
             for (int i = 0; i < poses.Length; i++)
             {
-                ikAnimation.AddKeyframe(poses[i], i);
+                animation.AddKeyframe(poses[i], i);
             }
-
-            IKAnimationData data = ScriptableObject.CreateInstance<IKAnimationData>();
-
-            data.animation = ikAnimation;
-            data.animationName = name;
-            return data;
+            return Create(name, animation);
         }
+        
     }
 }
