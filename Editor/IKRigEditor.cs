@@ -16,6 +16,13 @@ namespace Rehcub
         {
             IKRig rig = target as IKRig;
 
+            bool initialized = serializedObject.FindProperty("_initialized").boolValue;
+            if (initialized == false)
+            {
+                EditorGUILayout.HelpBox("The IKRig Component should be created with the ArmatureBuilder.", MessageType.Error);
+                return;
+            }
+
             serializedObject.Update();
 
             if(GUILayout.Button("Show Configurator"))

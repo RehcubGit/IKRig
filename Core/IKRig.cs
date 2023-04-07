@@ -11,8 +11,9 @@ namespace Rehcub
         public Armature Armature { get => _armature; }
         [SerializeField] private Armature _armature;
 
-        private Transform _transform;
-        private bool _useUnityAnimator;
+        [SerializeField] private Transform _transform;
+        [SerializeField] private bool _useUnityAnimator;
+        [SerializeField] private bool _initialized;
 
         public System.Action onPreApplyPose;
         public System.Action onPostApplyPose;
@@ -28,9 +29,11 @@ namespace Rehcub
             _transform = transform;
             _useUnityAnimator = TryGetComponent<UnityEngine.Animator>(out _);
         }
-        public void Create(Armature armature) 
+        public void Create(Armature armature)
         {
+            _transform = transform;
             _armature = armature;
+            _initialized = true;
         }
 
         private void LateUpdate()

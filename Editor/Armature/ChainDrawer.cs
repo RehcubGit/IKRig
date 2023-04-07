@@ -10,7 +10,7 @@ namespace Rehcub
     public class ChainDrawer : PropertyDrawer
     {
         private Rect _solverPopupRect;
-        private PopupExample _solverPopup;
+        private Popup _solverPopup;
         private IEnumerable<System.Type> _solverTypes;
         private string[] _solverMenuContent;
         private string _solverName;
@@ -122,7 +122,7 @@ namespace Rehcub
 
                 string name = side.enumDisplayNames[side.enumValueIndex] + " " + sChain.enumDisplayNames[sChain.enumValueIndex];
                 Debug.Log(name);
-                _solverPopup = PopupExample.Init(_solverPopupRect, _solverMenuContent, index => SelectionCallback(index, chainProperty, solverProperty));
+                _solverPopup = Popup.Create(_solverPopupRect, _solverMenuContent, index => SelectionCallback(index, chainProperty, solverProperty));
                 PopupWindow.Show(_solverPopupRect, _solverPopup);
             }
         }

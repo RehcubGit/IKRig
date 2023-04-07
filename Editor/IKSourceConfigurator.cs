@@ -53,8 +53,6 @@ namespace Rehcub
             _hasBakedRootMotion = _iKSource.HasBakedRootMotion();
             _hasBakedRootRotation = _iKSource.HasBakedRootRotation();
 
-            Debug.Log(_hasRootCurve);
-
             _rootAngle = _iKSource.GetRootRotationAngle();
             _rootAxis = _iKSource.GetRootMotionAxis();
         }
@@ -72,7 +70,7 @@ namespace Rehcub
         {
             SceneView.duringSceneGui -= DuringSceneGUI;
             if (_iKSource != null)
-                _iKSource.ResetToTPose();
+                _iKSource.ResetToBindPose();
         }
 
         private void OnGUI()
@@ -126,12 +124,12 @@ namespace Rehcub
                 AssetDatabase.CreateAsset(_animationData, name);
                 AssetDatabase.SaveAssets();
 
-                _iKSource.ResetToTPose();
+                _iKSource.ResetToBindPose();
             }
 
             _showAnimationDebug = GUILayout.Toggle(_showAnimationDebug, EditorGUIUtility.TrTextContent("Debug", "Enable/disable scene debug view."), EditorStyles.toolbarButton);
             if (GUILayout.Button(EditorGUIUtility.TrTextContent("Reset Pose", "Reset To bind pose."), EditorStyles.toolbarButton))
-                _iKSource.ResetToTPose();
+                _iKSource.ResetToBindPose();
 
             Apply();
 

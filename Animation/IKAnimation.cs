@@ -9,7 +9,7 @@ namespace Rehcub
         public int FrameCount => _keyframes.Length;
         [SerializeField] private IKPose[] _keyframes;
         public bool HasRootMotion { get => _hasRootMotion; }
-        private bool _hasRootMotion;
+        [SerializeField] private bool _hasRootMotion;
 
         public IKAnimation(float length, float frameRate, bool hasRootMotion = false)
         {

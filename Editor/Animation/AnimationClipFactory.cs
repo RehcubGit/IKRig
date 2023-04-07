@@ -126,6 +126,9 @@ namespace Rehcub
 
         private static void SaveClip(AnimationClip clip, string name)
         {
+            if (AssetDatabase.IsValidFolder("Assets/AnimationClips") == false)
+                AssetDatabase.CreateFolder("Assets", "AnimationClips");
+
             string assetPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/AnimationClips/{name}.anim");
             AssetDatabase.CreateAsset(clip, assetPath);
             AssetDatabase.SaveAssets();

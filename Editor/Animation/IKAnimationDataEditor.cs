@@ -12,11 +12,12 @@ namespace Rehcub
         private SerializedProperty _loopProp;
         private SerializedProperty _applyRootMotionProp;
 
-        private bool _hasRootMotion;
-
         private void OnEnable()
         {
             IKAnimationData animationData = target as IKAnimationData;
+
+            if (animationData == null)
+                return;
 
             string assetPath = AssetDatabase.GetAssetPath(animationData.GetInstanceID());
             name = Path.GetFileNameWithoutExtension(assetPath);
@@ -27,18 +28,18 @@ namespace Rehcub
             _animationName = name;
 
             _loopProp = serializedObject.FindProperty("_loop");
-            _hasRootMotion = animationData.animation.HasRootMotion;
             _applyRootMotionProp = serializedObject.FindProperty("_applyRootMotion");
         }
 
         public override void OnInspectorGUI()
         {
+            IKAnimationData animationData = target as IKAnimationData;
             serializedObject.Update();
 
             EditorGUILayout.LabelField("Name", _animationName);
 
             DrawToggle(_loopProp);
-            if(_hasRootMotion)
+            if(animationData.animation.HasRootMotion)
                 DrawToggle(_applyRootMotionProp);
 
             serializedObject.ApplyModifiedProperties();

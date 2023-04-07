@@ -109,7 +109,7 @@ namespace Rehcub
 
         public Bone First() => _bones.First();
         public Bone Last() => _bones.Last();
-        private void ComputeLength()
+        public void ComputeLength()
         {
             if(_bones.Length == 1)
             {

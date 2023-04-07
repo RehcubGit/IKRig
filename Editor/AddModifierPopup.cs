@@ -52,20 +52,20 @@ namespace Rehcub
 
         public static void ClosePopup() => window?.Close();
     }
-    public class PopupExample : PopupWindowContent
+    public class Popup : PopupWindowContent
     {
         private Vector2 _windowSize;
         private string[] _menuItems;
         private System.Action<int> _selectionCallback;
 
-        public static PopupExample Init(Rect position, string[] menuItems, System.Action<int> selectionCallback)
+        public static Popup Create(Rect position, string[] menuItems, System.Action<int> selectionCallback)
         {
-            PopupExample popupExample = new PopupExample
+            Popup popupExample = new Popup
             {
                 _menuItems = menuItems,
                 _selectionCallback = selectionCallback,
             };
-            popupExample._windowSize = new Vector2(position.width, EditorGUIUtility.singleLineHeight * popupExample._menuItems.Length + 20f);
+            popupExample._windowSize = new Vector2(position.width, EditorGUIUtility.singleLineHeight * popupExample._menuItems.Length + 10f);
 
             return popupExample;
         }

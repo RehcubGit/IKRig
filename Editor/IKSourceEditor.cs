@@ -13,24 +13,31 @@ namespace Rehcub
 
         public override void OnInspectorGUI ()
         {
-            //base.OnInspectorGUI();
+            bool initialized = serializedObject.FindProperty("_initialized").boolValue;
+            if (initialized == false)
+            {
+                EditorGUILayout.HelpBox("The IKSource Component should be created with the ArmatureBuilder.", MessageType.Error);
+                return;
+            }
 
             serializedObject.Update();
 
-            SerializedProperty currentProperty;
-
-            currentProperty = serializedObject.FindProperty("_tPose");
+            SerializedProperty currentProperty = serializedObject.FindProperty("_clip");
             EditorGUILayout.PropertyField(currentProperty);
 
-            currentProperty = serializedObject.FindProperty("_clip");
-            EditorGUILayout.PropertyField(currentProperty);
+            serializedObject.ApplyModifiedProperties();
+
+            if(currentProperty.objectReferenceValue == null)
+            {
+                EditorGUILayout.HelpBox("Assign a AnimationClip to open the Configurator!", MessageType.Warning);
+                return;
+            }
 
             if (GUILayout.Button("Show Configurator"))
             {
                 IKSourceConfigurator.ShowConfigurator((IKSource)target);
             }
 
-            serializedObject.ApplyModifiedProperties();
         }
     }
 }

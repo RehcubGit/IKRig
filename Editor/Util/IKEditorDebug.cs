@@ -103,19 +103,16 @@ namespace Rehcub
 
         public static void DrawChain(Chain chain)
         {
-            Vector3 start = chain.First().model.position;
-            Quaternion r = chain.First().model.rotation;
+            Vector3 position = chain.First().model.position;
+            Quaternion rotation = chain.First().model.rotation;
 
-            Vector3 direction = r * chain.alternativeUp;
-            direction = start + direction * _axisSize;
-            Handles.color = Color.blue;
-            Handles.DrawLine(start, direction);
-
-            direction = r * chain.alternativeForward;
-            direction = start + direction * _axisSize;
+            Vector3 direction = rotation * chain.alternativeUp;
             Handles.color = Color.green;
-            Handles.DrawLine(start, direction);
-            //DrawHandle(up);
+            Handles.ArrowHandleCap(1, position, Quaternion.FromToRotation(Vector3.forward, direction), _handleSize, EventType.Repaint);
+
+            direction = rotation * chain.alternativeForward;
+            Handles.color = Color.blue;
+            Handles.ArrowHandleCap(1, position, Quaternion.FromToRotation(Vector3.forward, direction), _handleSize, EventType.Repaint);
         }
 
         public static void DrawBone(Pose pose, Bone bone, IKBone ikBone)

@@ -1,7 +1,4 @@
-﻿using Bewildered.Editor;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Rehcub
@@ -21,17 +18,11 @@ namespace Rehcub
 
         private int _currentKeyframe;
 
-        PopupExample popup;
-        float scrollMod;
-        private Rect popupRect;
-
         private Vector2 _scrollPosition;
 
         private int FPS = 30;
         private float _startTime;
         private bool _isPlaying;
-
-        private IEnumerable<System.Type> _constraintTypes;
 
 
         #endregion
@@ -49,7 +40,6 @@ namespace Rehcub
             _window = GetWindow<IKRigConfigurator>("IK Rig Configurator");
             _window.serializedObject = new SerializedObject(ikRig);
             _window._rig = ikRig;
-            ikRig.Init();
         }
 
         private void OnEnable()
@@ -72,6 +62,7 @@ namespace Rehcub
 
             };
         }
+
         private void OnDisable()
         {
             SceneView.duringSceneGui -= DuringSceneGUI;
@@ -81,6 +72,7 @@ namespace Rehcub
                 EditorApplication.update -= PlayAnimation;
             }
         }
+
         private void OnDestroy()
         {
             if(_rig != null)
@@ -161,26 +153,27 @@ namespace Rehcub
             _startTime = (float)EditorApplication.timeSinceStartup;
         }
 
+        private void StopPlayingAnimation()
+        {
+            EditorApplication.update -= PlayAnimation;
+            _isPlaying = false;
+        }
+
         private void PlayAnimation()
         {
             float time = (float)EditorApplication.timeSinceStartup - _startTime;
             int frame = Mathf.FloorToInt(time * FPS);
 
-            //_rig.transform.Rotate(0, 1f, 0);
-
             Repaint();
             IKAnimationData animationData = (IKAnimationData)selectedProperty.objectReferenceValue;
 
+            bool loop = animationData.loop;
 
-            SerializedProperty animation = settingsEditor.serializedObject.FindProperty("_animation");
-            SerializedProperty loop = settingsEditor.serializedObject.FindProperty("_loop");
-            SerializedProperty keyframes = animation.FindPropertyRelative("_keyframes");
-
-            int size = keyframes.arraySize - 1; //Last and First frame are the same
+            int size = animationData.animation.FrameCount - 1; //Last and First frame are the same
             if (frame >= size)
             {
                 frame %= size;
-                if(loop.boolValue == false)
+                if(loop == false)
                 {
                     EditorApplication.update -= PlayAnimation;
                     _isPlaying = false;
@@ -421,6 +414,12 @@ namespace Rehcub
             IKAnimationData animationData = (IKAnimationData)selectedProperty.objectReferenceValue;
 
             _rig.ApplyIkPose(animationData, _currentKeyframe);
+        }
+
+        private void ApplyIkPose(int frame)
+        {
+            _currentKeyframe = frame;
+            ApplyIkPose();
         }
 
         private void ApplyPose()

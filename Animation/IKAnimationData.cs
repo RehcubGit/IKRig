@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace Rehcub
 {
-    [CreateAssetMenu(fileName = "Animation", menuName = "Animation/IKAnimation", order = 1)]
     public class IKAnimationData : ScriptableObject
     {
         public IKAnimation animation => _animation;

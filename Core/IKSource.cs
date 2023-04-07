@@ -6,8 +6,7 @@ namespace Rehcub
     [SelectionBase]
     public class IKSource : MonoBehaviour
     {
-        [SerializeField] private Transform _root;
-        [SerializeField] private AnimationClip _tPose;
+        [SerializeField] private Transform _transform;
 
         public Armature Armature { get => _armature; }
         [SerializeField] private Armature _armature;
@@ -16,17 +15,19 @@ namespace Rehcub
         public IKAnimationData AnimationData { get => _animationData; }
         [SerializeField] private IKAnimationData _animationData;
 
+        [SerializeField] private bool _initialized;
+
+
         public void Init(Armature armature)
         {
-            //_transform = transform;
+            _transform = transform;
             _armature = armature;
+            _initialized = true;
         }
 
         public IKAnimationData CreateIKAnimation(Vector3 rootMotionAxis, float targetAngle)
         {
             int frameCount = (int)(_clip.length * _clip.frameRate);
-            //bool hasRootMotion = HasRootMotionCurve() || HasBakedRootMotion() || HasBakedRootRotation();
-
 
             bool hasRootMotion = Mathf.Abs(rootMotionAxis.sqrMagnitude) > 0f || Mathf.Abs(targetAngle) > 0f;
 
@@ -34,38 +35,20 @@ namespace Rehcub
 
             Vector3 prevRootMovement = Vector3.zero;
             Quaternion prevRootRotation = Quaternion.identity;
-            float prevRootAngle = 0f;
             bool ignoreFurtherRotation = false;
-
-            IKPose firstPose = null;
 
             for (int i = 0; i <= frameCount; i++)
             {
                 bool lastFrame = i == frameCount;
 
                 SampleAnimation(i);
-
                 GetRootMotion(targetAngle, rootMotionAxis, out Vector3 rootMovement, out Quaternion rootRotation, i, lastFrame, ref ignoreFurtherRotation);
 
-
                 IKPose pose = Compute();
-
-                if (i == 0)
-                    firstPose = pose;
-
                 ApplyRootMotionToPose(ref prevRootMovement, ref prevRootRotation, rootMovement, rootRotation, pose);
                 
-
                 ikAnimation.AddKeyframe(pose, i);
             }
-
-            if (hasRootMotion)
-            {
-                /*BoneTransform lastFrameRoot = ikAnimation.GetFrame(frameCount).deltaRootMotion;
-                firstPose.deltaRootMotion = lastFrameRoot;*/
-            }
-
-            Debug.Log(ikAnimation.FrameCount);
 
             IKAnimationData data = IKAnimationData.Create(_clip.name, ikAnimation);
 
@@ -79,8 +62,8 @@ namespace Rehcub
             if (HasRootMotionCurve())
             {
                 SampleAnimation(frame);
-                rootMovement = transform.position;
-                rootRotation = transform.rotation;
+                rootMovement = _transform.position;
+                rootRotation = _transform.rotation;
                 return;
             }
 
@@ -110,12 +93,9 @@ namespace Rehcub
 
             pose.deltaRootMotion.position = rootMovement - prevRootMovement;
             pose.deltaRootMotion.rotation = Quaternion.Inverse(prevRootRotation) * rootRotation;
-            //float deltaAngle = rootAngle - prevRootAngle;
-            //pose.deltaRootMotion.rotation = Quaternion.Euler(0f, deltaAngle, 0f);
 
             prevRootMovement = rootMovement;
             prevRootRotation = rootRotation;
-            //prevRootAngle = rootAngle;
         }
 
         private void ExtractRootMotion(int frame, Vector3 rootMotionAxis, out Vector3 rootMovement, out float rootAngle)
@@ -142,16 +122,22 @@ namespace Rehcub
             rootAngle = Vector3.SignedAngle(Vector3.forward, rootForward, Vector3.up);
         }
 
-        public void ResetToTPose()
+        public void ResetToBindPose()
         {
-            _tPose.SampleAnimation(gameObject, 0);
+            transform.position = Vector3.zero;
+            transform.rotation = Quaternion.identity;
+            transform.localScale = Vector3.one;
+            _armature.scale = transform.localScale;
+            _armature.ApplyBindPose();
+            _armature.currentPose.rootTransform = BoneTransform.zero;
+            _armature.UpdatePose();
         }
 
         public void SampleAnimation(int frame)
         {
             float frameTime = frame / _clip.frameRate;
             _clip.SampleAnimation(gameObject, frameTime);
-            _clip.SampleAnimationRoot(transform, frameTime);
+            _clip.SampleAnimationRoot(_transform, frameTime);
         }
 
         private IKPose Compute()
