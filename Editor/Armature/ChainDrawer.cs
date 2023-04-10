@@ -23,6 +23,9 @@ namespace Rehcub
                 y += EditorGUI.GetPropertyHeight(property.FindPropertyRelative("alternativeUp"));
                 y += EditorGUI.GetPropertyHeight(property.FindPropertyRelative("solver"));
 
+                y += EditorGUIUtility.singleLineHeight;
+                y += property.FindPropertyRelative("_bones").arraySize * EditorGUIUtility.singleLineHeight;
+
                 return EditorGUIUtility.singleLineHeight * 6f + y;
             }
             return EditorGUIUtility.singleLineHeight;
@@ -44,19 +47,18 @@ namespace Rehcub
                 return;
 
             EditorGUI.indentLevel++;
-            /*SerializedProperty bonesProp = property.FindPropertyRelative("_bones");
+            SerializedProperty bonesProp = property.FindPropertyRelative("_bones");
 
-            bonesProp.isExpanded = EditorGUILayout.Foldout(bonesProp.isExpanded, bonesProp.displayName, true);
-
-            if (bonesProp.isExpanded)
+            EditorGUI.LabelField(rect, "Bones:"); 
+            rect.y += EditorGUIUtility.singleLineHeight;
+            EditorGUI.indentLevel++;
+            for (int i = 0; i < bonesProp.arraySize; i++)
             {
-                EditorGUI.indentLevel++;
-                for (int i = 0; i < bonesProp.arraySize; i++)
-                {
-                    EditorGUILayout.PropertyField(bonesProp.GetArrayElementAtIndex(i));
-                }
-                EditorGUI.indentLevel--;
-            }*/
+                SerializedProperty boneProp = bonesProp.GetArrayElementAtIndex(i);
+                EditorGUI.LabelField(rect, boneProp.FindPropertyRelative("boneName").stringValue);
+                rect.y += EditorGUIUtility.singleLineHeight;
+            }
+            EditorGUI.indentLevel--;
 
             DrawProperty(ref rect, property, "count");
             DrawProperty(ref rect, property, "length");
