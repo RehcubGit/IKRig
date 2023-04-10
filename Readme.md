@@ -58,6 +58,10 @@ IKSource
 The IKSource is for creating the IKAnimations.
 * Open the Configurator 
 * Drag in you Animation Clip
+* When the animation has Root motion this will be displayed at the bottom.
+* When the Root motion is baked into the hip there will be a selection to extract that.
+  * If the position of the hip at the first and last frame does not match the corresponding axis will be selected for extraction.
+  + If the rotation around the Y-Axis does not match the angle will be calculated and extracted. (It is advisable to set that manual to 90° if it is close to for example 90°)
 * Hit "Create IK Animation"
 The IK animation object will be saved in the IKAnimation folder
 
