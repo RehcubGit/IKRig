@@ -17,14 +17,24 @@ How to use
 ArmatureBuilder
 ---
 
-First of all your model should be in T-Pose.
-Then you add your model to the scene and add the component ArmatureBuilder.
+Add your model to the scene and add the component <b>ArmatureBuilder</b>.
 * Open the configurator.
-* Select the root bone (which is preferably your hip bone) of your armature and hit "Add All Bones" this adds the selected root bone and all its children to the armature.
-* Select (in the configurator) multiple bones and hit "Add Chain" to group them into a chain.
-Make sure you select them in desending order and that the bones are in a parent child relation.
-* Go to the "Chain" tab and check if they are assigned the right way.
-Here you sould adjust the forward and up directions of the chain.
+* Go to the hip of the rig in the hierachy. Go to Add and "add bone and children". Now all the bones of your rig should be added to the armature.
+* But there might be some problems. The direction and length of the bone is calaculated based on the first child of the bone. So when for example the first child of the hip is not the spine, the hip will be wrongly calculated. Let’s fix that:
+  * Go to the bone tab, and select the hip.
+  * Look at the child names and click “Shift Children” until the spine is the first in the array.
+  * To apply that we need to recalculate the forward and length, just hit the 2 buttons at the top.
+* This could always accoure when the bone has more then 1 child bone. Just repeat the last step for this area.
+* Another point are the hands, here I find it more suitable to set them manually because when you use the IK target object later, the forward and up of the bone will be matched with the forward and up of the IK target object’s transform. So I find it easiest to set:
+  * The forward to point in the direction of the hand
+  * The up to point to the back of the hand
+* For the rest of the bones it is not really necessary to set their up direction, but it should be consistent between armatures.
+* To add a chain go back to the Transform tab:
+  * Select all transforms that are part of a chain. For example: (upperleg, lowerleg, foot).
+  * Go to Add and select Add Chain.
+  * Repeat that for every chain in your armature.
+
+* After that go to Chain tab (Here you sould adjust the forward and up directions of the chain):
 
   * The forward direction is the direction which points from the first bone to the second bone in local space of the first bone.<br>
   So when the y axis of the first bone points to the second bone then the forward direction is (0, 1, 0).
@@ -40,7 +50,7 @@ Here you sould adjust the forward and up directions of the chain.
   * Spring: A multi bone procedural solver
   
 
-When you finished editing the armature you can then create a "IKSource" or "IKRig".
+When you finished editing the armature you can create a "IKSource" or "IKRig" by clicking the little armature symbol on the top left.
 
 IKSource
 ---
@@ -49,7 +59,7 @@ The IKSource is for creating the IKAnimations.
 * Open the Configurator 
 * Drag in you Animation Clip
 * Hit "Create IK Animation"
-The IK animation object you now be saved in the IKAnimation folder
+The IK animation object will be saved in the IKAnimation folder
 
 IKRig
 ---
@@ -59,7 +69,7 @@ The IKRig is the core component for applying IKPoses
 * Open the Configurator
 * Go to the Animation Tab
 * Drag your IK Animation Clips into the list on the left side
-* Play back the animation, add modifiers or export them as Unity Animation Clips
+* Play back the animation or create a Unity Animation Clips
 
 You can also create IK Target Objects, these are for manualy manipulating the ik chains
 These work in addition to the ik animations.
