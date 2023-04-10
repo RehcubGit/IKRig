@@ -83,7 +83,6 @@ namespace Rehcub
             {
                 EditorApplication.update -= PlayAnimation;
             }
-            AddModifierPopup.ClosePopup();
         }
 
         private void UndoRepaint()
