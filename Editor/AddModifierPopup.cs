@@ -65,7 +65,7 @@ namespace Rehcub
                 _menuItems = menuItems,
                 _selectionCallback = selectionCallback,
             };
-            popupExample._windowSize = new Vector2(position.width, EditorGUIUtility.singleLineHeight * popupExample._menuItems.Length + 10f);
+            popupExample._windowSize = new Vector2(position.width, (EditorGUIUtility.singleLineHeight + 2f) * popupExample._menuItems.Length + 3f);
 
             return popupExample;
         }
